@@ -1,4 +1,3 @@
-%{
 
 val p0 = (0,0)
 
@@ -33,20 +32,40 @@ val predef = List.map makeUnaryFunction
 		      [("+",Syntax.PLUS),
 		       ("*",Syntax.TIMES),
 		       ("U",Syntax.CONC)]
-%}
 
-%token <int*(int*int)> NUM
-%token <string*(int*int)> ID
-%token <string list *(int*int)> STRINGS
-%token <(int*int)> D Z SUM LEAST LARGEST MIN MAX CONC HASH COUNT AND
-%token <(int*int)> PLUS MINUS TIMES DIVIDE MOD LPAR RPAR LBRACE RBRACE COMMA
-%token <(int*int)> ASSGN EQ NEQ LT GT LE GE DOTDOT SEMI LET IN
-%token <(int*int)> FOREACH DO IF THEN ELSE CHOOSE DROP KEEP PICK DIFFERENT MEDIAN
-%token <(int*int)> ACCUM REPEAT WHILE UNTIL FUNCTION CALL COMPOSITIONAL EOF
-%token <(int*int)> SAMPLE HCONC VCONCL VCONCR VCONCC
-%token <(int*int)> QUESTION MINIMAL MAXIMAL SETMINUS
-%token <(int*int)> LBRACK RBRACK FIRST SECOND SIGN TILDE BANG
-%token <real*(int*int)> REAL
+%%
+
+%name troll_parser
+
+%pos int
+
+%start Dice
+
+%verbose
+
+%noshift EOF
+%eop EOF
+
+%term NUM of int |
+ ID of string |
+ STRINGS of string list |
+ D | Z | SUM | LEAST | LARGEST | MIN | MAX | CONC | HASH | COUNT | AND |
+ PLUS | MINUS | TIMES | DIVIDE | MOD | LPAR | RPAR | LBRACE | RBRACE | COMMA |
+ ASSGN | EQ | NEQ | LT | GT | LE | GE | DOTDOT | SEMI | LET | IN |
+ FOREACH | DO | IF | THEN | ELSE | CHOOSE | DROP | KEEP | PICK | DIFFERENT | MEDIAN |
+ ACCUM | REPEAT | WHILE | UNTIL | FUNCTION | CALL | COMPOSITIONAL | EOF |
+ SAMPLE | HCONC | VCONCL | VCONCR | VCONCC | UMINUS |
+ QUESTION | MINIMAL | MAXIMAL | SETMINUS |
+ LBRACK | RBRACK | FIRST | SECOND | SIGN | TILDE | BANG |
+ REAL of real
+
+%nonterm Dice of Syntax.Program |
+ Decl of (string * Syntax.Declaration) |
+ Decls of ((string * Syntax.Declaration) list) |
+ Exp of Syntax.Exp | ExpList of Syntax.Exp | ExpList1 of Syntax.Exp |
+ ExpList2 of Syntax.Exp list |
+ Ids of string list | 
+ IDorUnop of string | IDorBinop of string | ExpNoUn
 
 %nonassoc FUNCTION
 %right SEMI
@@ -63,188 +82,209 @@ val predef = List.map makeUnaryFunction
 %right HASH TILDE
 %left D Z
 
-%start Dice
-%type <Syntax.Program> Dice
-%type <string * Syntax.Declaration> Decl
-%type <(string * Syntax.Declaration) list> Decls
-%type <Syntax.Exp> Exp ExpList ExpList1
-%type <Syntax.Exp list> ExpList2
-%type <string list> Ids
-%type <string> IDorUnop IDorBinop
-
 %%
 
-Dice:
-	  Decls Exp Decls EOF	{ ($1 @ $3 @ predef,$2) }
-;
+Dice : Decls Exp Decls (Decls1 @ Decls2 @ predef,Exp)
 
-Decls:
-	  Decl Decls	{ $1 :: $2 }
-	|		{ [] }
-;
+Decls : Decl Decls (Decl :: Decls)
+      | ([])
 
-Decl:
-	  FUNCTION ID LPAR Ids RPAR EQ Exp %prec FUNCTION
-			{ (#1 $2, Syntax.Func ($4, $7, $1)) }
-	| COMPOSITIONAL ID LPAR Exp COMMA IDorUnop COMMA IDorBinop RPAR
-			{ (#1 $2, Syntax.Comp ($4, $6, $8, $1)) }
-;
+Decl : FUNCTION ID LPAR Ids RPAR EQ Exp %prec FUNCTION (#1 $2, Syntax.Func ($4, $7, $1))
+(*4*)     | COMPOSITIONAL ID LPAR Exp COMMA IDorUnop COMMA IDorBinop RPAR (#1 $2, Syntax.Comp ($4, $6, $8, $1))
 
-IDorUnop:
-	  ID		{ #1 $1 }
-	| MINUS		{ "-" }
-	| D		{ "d" }
-	| Z		{ "z" }
-	| SUM		{ "sum" }
-	| SIGN		{ "sgn" }
-	| COUNT		{ "count" }
-	| MIN		{ "min" }
-	| MAX		{ "max" }
-	| MINIMAL	{ "minimal" }
-	| MAXIMAL	{ "maximal" }
-	| CHOOSE	{ "choose" }
-	| DIFFERENT	{ "different" }
-;
+IDorUnop : ID     ( #1 $1 )
+         | MINUS  ( "-" )
+         | D      ( "d" )
+         | Z      ( "z" )
+         | SUM    ( "sum" )
+| SIGN		( "sgn" )
+| COUNT		( "count" )
+| MIN		( "min" )
+| MAX		( "max" )
+| MINIMAL	( "minimal" )
+| MAXIMAL	( "maximal" )
+| CHOOSE	( "choose" )
+| DIFFERENT	( "different" )
 
-IDorBinop:
-	  ID		{ #1 $1 }
-	| PLUS		{ "+" }
-	| TIMES		{ "*" }
-	| CONC		{ "U" }
-Ids:
-	  ID		{ [#1 $1] }
-	| ID COMMA Ids	{ #1 $1 :: $3 }
-;
+IDorBinop : ID		( #1 $1 )
+	| PLUS		( "+" )
+	| TIMES		( "*" )
+	| CONC		( "U" )
+(*21*)
+Ids :   ID		( [#1 $1] )
+	| ID COMMA Ids	( #1 $1 :: $3 )
 
-Exp:
-	  NUM           { Syntax.NUM $1 }
-        | ID		{ Syntax.ID $1 }
-	| Exp CONC Exp	{ Syntax.CONC ($1,$3, $2) }
-	| CHOOSE Exp	{ Syntax.CHOOSE ($2, $1) }
-	| DIFFERENT Exp	{ Syntax.DIFFERENT ($2, $1) }
-	| LBRACE ExpList RBRACE
-			{ $2 }
-	| Exp PLUS Exp	{ Syntax.PLUS ($1,$3, $2) }
-	| Exp MINUS Exp	{ Syntax.MINUS ($1,$3, $2) }
-	| Exp TIMES Exp	{ Syntax.TIMES ($1,$3, $2) }
-	| Exp DIVIDE Exp
-		     	{ Syntax.DIVIDE ($1,$3, $2) }
-	| Exp MOD Exp	{ Syntax.MOD ($1,$3, $2) }
-	| MINUS Exp %prec UMINUS
-			{ Syntax.UMINUS ($2, $1) }
-	| D Exp		{ Syntax.D ($2, $1) }
-	| Z Exp		{ Syntax.Z ($2, $1) }
-	| SUM Exp	{ Syntax.SUM ($2, $1) }
-	| SIGN Exp	{ Syntax.SIGN ($2, $1) }
-	| COUNT Exp	{ Syntax.COUNT ($2, $1) }
-	| LEAST Exp Exp	{ Syntax.LEAST ($2,$3, $1) }
-	| MIN Exp	{ Syntax.LEAST (Syntax.NUM (1,$1),$2, $1) }
-	| LARGEST Exp Exp
-		  	{ Syntax.LARGEST ($2,$3, $1) }
-	| MAX Exp	{ Syntax.LARGEST (Syntax.NUM (1,$1),$2, $1) }
-        | MEDIAN Exp    { Syntax.MEDIAN ($2, $1) }
-	| MINIMAL Exp	{ Syntax.MINIMAL ($2, $1) }
-	| MAXIMAL Exp	{ Syntax.MAXIMAL ($2, $1) }
-	| Exp HASH Exp	{ Syntax.HASH ($1,$3, $2) }
-	| Exp AND Exp	{ Syntax.AND ($1,$3, $2) }
-	| Exp D Exp %prec HASH
-			{ Syntax.HASH ($1,Syntax.D ($3, $2), $2) }
-	| Exp Z Exp %prec HASH
-			{ Syntax.HASH ($1,Syntax.Z ($3, $2), $2) }
-	| Exp EQ Exp	{ Syntax.EQ ($1,$3, $2) }
-	| Exp NEQ Exp	{ Syntax.NEQ ($1,$3, $2) }
-	| Exp LT Exp	{ Syntax.LT ($1,$3, $2) }
-	| Exp GT Exp	{ Syntax.GT ($1,$3, $2) }
-	| Exp LE Exp	{ Syntax.LE ($1,$3, $2) }
-	| Exp GE Exp	{ Syntax.GE ($1,$3, $2) }
-	| Exp DROP Exp	{ Syntax.DROP ($1,$3, $2) }
-	| Exp KEEP Exp	{ Syntax.KEEP ($1,$3, $2) }
-	| Exp PICK Exp	{ Syntax.PICK ($1,$3, $2) }
-	| Exp SETMINUS Exp
-			{ Syntax.SETMINUS ($1,$3, $2) }
-	| Exp DOTDOT Exp
-			{ Syntax.FROMTO ($1,$3, $2) }
-	| ID ASSGN Exp SEMI Exp
-		 	{ Syntax.LET (#1 $1,$3,$5, $2) }
-	| ACCUM ID ASSGN Exp WHILE Exp
-			{ Syntax.ACCUM (#1 $2,$4,$6, true, $1) }
-	| ACCUM ID ASSGN Exp UNTIL Exp
-			{ Syntax.ACCUM (#1 $2,$4,$6, false, $1) }
-	| REPEAT ID ASSGN Exp WHILE Exp
-			{ Syntax.REPEAT (#1 $2,$4,$6, true, $1) }
-	| REPEAT ID ASSGN Exp UNTIL Exp
-			{ Syntax.REPEAT (#1 $2,$4,$6, false, $1) }
-	| FOREACH ID IN Exp DO Exp
-		 	{ Syntax.FOREACH (#1 $2,$4,$6, $1) }
-	| IF Exp THEN Exp ELSE Exp
-		 	{ Syntax.IF ($2,$4,$6, $1) }
-	| CALL ID LPAR ExpList2 RPAR
-			{ Syntax.CALL (#1 $2, $4, $1) }
-	| STRINGS       { let
+Exp : NUM   ( Syntax.NUM $1 )
+        | ID		( Syntax.ID $1 )
+	| Exp CONC Exp	( Syntax.CONC ($1,$3, $2) )
+	| CHOOSE Exp	( Syntax.CHOOSE ($2, $1) )
+	| DIFFERENT Exp	( Syntax.DIFFERENT ($2, $1) )
+	| LBRACE ExpList RBRACE ( $2 )
+	| Exp PLUS Exp	( Syntax.PLUS ($1,$3, $2) )
+(*31*)	| Exp MINUS Exp	( Syntax.MINUS ($1,$3, $2) )
+	| Exp TIMES Exp	( Syntax.TIMES ($1,$3, $2) )
+	| Exp DIVIDE Exp ( Syntax.DIVIDE ($1,$3, $2) )
+	| Exp MOD Exp	( Syntax.MOD ($1,$3, $2) )
+	| SUM Exp	( Syntax.SUM ($2, $1) )
+	| SIGN Exp	( Syntax.SIGN ($2, $1) )
+	| COUNT Exp	( Syntax.COUNT ($2, $1) )
+	| MIN Exp	( Syntax.LEAST (Syntax.NUM (1,$1),$2, $1) )
+	| MAX Exp	( Syntax.LARGEST (Syntax.NUM (1,$1),$2, $1) )
+        | MEDIAN Exp    ( Syntax.MEDIAN ($2, $1) )
+	| MINIMAL Exp	( Syntax.MINIMAL ($2, $1) )
+	| MAXIMAL Exp	( Syntax.MAXIMAL ($2, $1) )
+	| Exp HASH Exp	( Syntax.HASH ($1,$3, $2) )
+	| Exp AND Exp	( Syntax.AND ($1,$3, $2) )
+	| D Exp		( Syntax.D ($2, $1) )
+	| Exp Z Exp %prec HASH ( Syntax.HASH ($1,Syntax.Z ($3, $2), $2) )
+	| Exp D Exp %prec HASH ( Syntax.HASH ($1,Syntax.D ($3, $2), $2) )
+	| Exp EQ Exp	( Syntax.EQ ($1,$3, $2) )
+	| Exp NEQ Exp	( Syntax.NEQ ($1,$3, $2) )
+	| Exp LT Exp	( Syntax.LT ($1,$3, $2) )
+	| Exp GT Exp	( Syntax.GT ($1,$3, $2) )
+	| Exp LE Exp	( Syntax.LE ($1,$3, $2) )
+	| Exp GE Exp	( Syntax.GE ($1,$3, $2) )
+	| Exp DROP Exp	( Syntax.DROP ($1,$3, $2) )
+	| Exp KEEP Exp	( Syntax.KEEP ($1,$3, $2) )
+	| Exp PICK Exp	( Syntax.PICK ($1,$3, $2) )
+	| Exp SETMINUS Exp ( Syntax.SETMINUS ($1,$3, $2) )
+	| Exp DOTDOT Exp ( Syntax.FROMTO ($1,$3, $2) )
+	| ID ASSGN Exp SEMI Exp ( Syntax.LET (#1 $1,$3,$5, $2) )
+	| ACCUM ID ASSGN Exp WHILE Exp ( Syntax.ACCUM (#1 $2,$4,$6, true, $1) )
+	| ACCUM ID ASSGN Exp UNTIL Exp ( Syntax.ACCUM (#1 $2,$4,$6, false, $1) )
+	| REPEAT ID ASSGN Exp WHILE Exp ( Syntax.REPEAT (#1 $2,$4,$6, true, $1) )
+	| REPEAT ID ASSGN Exp UNTIL Exp ( Syntax.REPEAT (#1 $2,$4,$6, false, $1) )
+	| FOREACH ID IN Exp DO Exp ( Syntax.FOREACH (#1 $2,$4,$6, $1) )
+	| IF Exp THEN Exp ELSE Exp ( Syntax.IF ($2,$4,$6, $1) )
+	| CALL ID LPAR ExpList2 RPAR ( Syntax.CALL (#1 $2, $4, $1) )
+	| STRINGS       ( let
                             val pos = #2 $1
                             fun build [] = Syntax.STRING ("",pos)
                               | build [s] = Syntax.STRING (s,pos)
-                              | build ("|>" :: ss) =
-                                  Syntax.VCONCL(Syntax.STRING ("",pos),
-                                                build ss,pos)
-                              | build ("<|" :: ss) =
-                                  Syntax.VCONCR(Syntax.STRING ("",pos),
-                                                build ss,pos)
-                              | build ("<>" :: ss) =
-                                  Syntax.VCONCC(Syntax.STRING ("",pos),
-                                                build ss,pos)
-                              | build ("||" :: ss) =
-                                  Syntax.HCONC(Syntax.STRING ("",pos),
-                                               build ss,pos)
-                              | build (s :: "|>" :: ss) =
-                                  Syntax.VCONCL(Syntax.STRING (s,pos),
-                                                build ss,pos)
-                              | build (s :: "<|" :: ss) =
-                                  Syntax.VCONCR(Syntax.STRING (s,pos),
-                                                build ss,pos)
-                              | build (s :: "<>" :: ss) =
-                                  Syntax.VCONCC(Syntax.STRING (s,pos),
-                                                build ss,pos)
-                              | build (s :: "||" :: ss) =
-                                  Syntax.HCONC(Syntax.STRING (s,pos),
-                                               build ss,pos)
-                              | build (s :: ss) =
-                                  Syntax.HCONC(Syntax.STRING (s,pos),
-                                               build ss,pos)
+                              | build ("|>" :: ss) = Syntax.VCONCL(Syntax.STRING ("",pos), build ss,pos)
+                              | build ("<|" :: ss) = Syntax.VCONCR(Syntax.STRING ("",pos), build ss,pos)
+                              | build ("<>" :: ss) = Syntax.VCONCC(Syntax.STRING ("",pos), build ss,pos)
+                              | build ("||" :: ss) = Syntax.HCONC(Syntax.STRING ("",pos), build ss,pos)
+                              | build (s :: "|>" :: ss) = Syntax.VCONCL(Syntax.STRING (s,pos), build ss,pos)
+                              | build (s :: "<|" :: ss) = Syntax.VCONCR(Syntax.STRING (s,pos), build ss,pos)
+                              | build (s :: "<>" :: ss) = Syntax.VCONCC(Syntax.STRING (s,pos), build ss,pos)
+                              | build (s :: "||" :: ss) = Syntax.HCONC(Syntax.STRING (s,pos), build ss,pos)
+                              | build (s :: ss) = Syntax.HCONC(Syntax.STRING (s,pos), build ss,pos)
                           in
                             build (#1 $1)
                           end
-                        }
-        | SAMPLE Exp    { Syntax.SAMPLE ($2, $1) }
-        | Exp SAMPLE Exp %prec HASH
-	                { Syntax.SAMPLES ($1, $3, $2) }
-        | Exp HCONC Exp { Syntax.HCONC ($1,$3,$2) }
-        | Exp VCONCL Exp { Syntax.VCONCL ($1,$3,$2) }
-        | Exp VCONCR Exp { Syntax.VCONCR ($1,$3,$2) }
-        | Exp VCONCC Exp { Syntax.VCONCC ($1,$3,$2) }
-	| QUESTION REAL	{ Syntax.QUESTION (#1 $2, $1) }
-	| FIRST Exp		{ Syntax.FIRST ($2, $1) }
-	| SECOND Exp	{ Syntax.SECOND ($2, $1) }
-	| LBRACK Exp COMMA Exp RBRACK
-					{ Syntax.PAIR ($2, $4, $3) }
-	| BANG Exp	{ Syntax.IF ($2, Syntax.EMPTY, Syntax.NUM (1,$1), $1) }
-	| ID TILDE Exp	{ Syntax.DEFAULT (#1 $1, $3, $2) }
-	| LPAR Exp RPAR	{ $2 }
-;
+                        )
+        | Exp SAMPLE Exp %prec HASH ( Syntax.SAMPLES ($1, $3, $2) )
+        | Exp HCONC Exp ( Syntax.HCONC ($1,$3,$2) )
+        | Exp VCONCL Exp ( Syntax.VCONCL ($1,$3,$2) )
+        | Exp VCONCR Exp ( Syntax.VCONCR ($1,$3,$2) )
+        | Exp VCONCC Exp ( Syntax.VCONCC ($1,$3,$2) )
+	| QUESTION REAL	( Syntax.QUESTION (#1 $2, $1) )
+	| FIRST Exp		( Syntax.FIRST ($2, $1) )
+	| SECOND Exp	( Syntax.SECOND ($2, $1) )
+	| LBRACK Exp COMMA Exp RBRACK ( Syntax.PAIR ($2, $4, $3) )
+	| BANG Exp	( Syntax.IF ($2, Syntax.EMPTY, Syntax.NUM (1,$1), $1) )
+	| ID TILDE Exp	( Syntax.DEFAULT (#1 $1, $3, $2) )
+	| LPAR Exp RPAR	( $2 )
+        | MINUS Exp %prec UMINUS ( Syntax.UMINUS ($2, $1) )
+	| Z Exp		( Syntax.Z ($2, $1) )
+        | SAMPLE Exp    ( Syntax.SAMPLE ($2, $1) )
+	| LEAST ExpNoUn  Exp	( Syntax.LEAST ($2,$3, $1) )
+	| LEAST MINUS ExpNoUn  Exp	( Syntax.LEAST ($2,$3, $1) )
+	| LEAST SAMPLE ExpNoUn  Exp	( Syntax.LEAST ($2,$3, $1) )
+	| LEAST D ExpNoUn  Exp	( Syntax.LEAST ($2,$3, $1) )
+	| LEAST Z ExpNoUn  Exp	( Syntax.LEAST ($2,$3, $1) )
+	| LARGEST ExpNoUn  Exp ( Syntax.LARGEST ($2,$3, $1) )
+	| LARGEST MINUS ExpNoUn  Exp ( Syntax.LARGEST ($2,$3, $1) )
+	| LARGEST SAMPLE ExpNoUn  Exp ( Syntax.LARGEST ($2,$3, $1) )
+	| LARGEST Z ExpNoUn  Exp ( Syntax.LARGEST ($2,$3, $1) )
+	| LARGEST D ExpNoUn  Exp ( Syntax.LARGEST ($2,$3, $1) )
 
-ExpList:
-	  		{ Syntax.EMPTY }
-	| ExpList1	{ $1 }
-;
+ExpNoUn : NUM   ( Syntax.NUM $1 )
+        | ID		( Syntax.ID $1 )
+	| ExpNoUn CONC ExpNoUn	( Syntax.CONC ($1,$3, $2) )
+	| CHOOSE ExpNoUn	( Syntax.CHOOSE ($2, $1) )
+	| DIFFERENT ExpNoUn	( Syntax.DIFFERENT ($2, $1) )
+	| LBRACE ExpList RBRACE ( $2 )
+	| ExpNoUn PLUS ExpNoUn	( Syntax.PLUS ($1,$3, $2) )
+	| ExpNoUn TIMES ExpNoUn	( Syntax.TIMES ($1,$3, $2) )
+	| ExpNoUn DIVIDE ExpNoUn ( Syntax.DIVIDE ($1,$3, $2) )
+	| ExpNoUn MOD ExpNoUn	( Syntax.MOD ($1,$3, $2) )
+	| SUM ExpNoUn	( Syntax.SUM ($2, $1) )
+	| SIGN ExpNoUn	( Syntax.SIGN ($2, $1) )
+	| COUNT ExpNoUn	( Syntax.COUNT ($2, $1) )
+	| MIN ExpNoUn	( Syntax.LEAST (Syntax.NUM (1,$1),$2, $1) )
+	| MAX ExpNoUn	( Syntax.LARGEST (Syntax.NUM (1,$1),$2, $1) )
+        | MEDIAN ExpNoUn    ( Syntax.MEDIAN ($2, $1) )
+	| MINIMAL ExpNoUn	( Syntax.MINIMAL ($2, $1) )
+	| MAXIMAL ExpNoUn	( Syntax.MAXIMAL ($2, $1) )
+	| ExpNoUn HASH ExpNoUn	( Syntax.HASH ($1,$3, $2) )
+	| ExpNoUn AND ExpNoUn	( Syntax.AND ($1,$3, $2) )
+	| ExpNoUn EQ ExpNoUn	( Syntax.EQ ($1,$3, $2) )
+	| ExpNoUn NEQ ExpNoUn	( Syntax.NEQ ($1,$3, $2) )
+	| ExpNoUn LT ExpNoUn	( Syntax.LT ($1,$3, $2) )
+	| ExpNoUn GT ExpNoUn	( Syntax.GT ($1,$3, $2) )
+	| ExpNoUn LE ExpNoUn	( Syntax.LE ($1,$3, $2) )
+	| ExpNoUn GE ExpNoUn	( Syntax.GE ($1,$3, $2) )
+	| ExpNoUn DROP ExpNoUn	( Syntax.DROP ($1,$3, $2) )
+	| ExpNoUn KEEP ExpNoUn	( Syntax.KEEP ($1,$3, $2) )
+	| ExpNoUn PICK ExpNoUn	( Syntax.PICK ($1,$3, $2) )
+	| ExpNoUn SETMINUS Exp ( Syntax.SETMINUS ($1,$3, $2) )
+	| ExpNoUn DOTDOT Exp ( Syntax.FROMTO ($1,$3, $2) )
+	| ID ASSGN ExpNoUn SEMI ExpNoUn ( Syntax.LET (#1 $1,$3,$5, $2) )
+	| ACCUM ID ASSGN ExpNoUn WHILE ExpNoUn ( Syntax.ACCUM (#1 $2,$4,$6, true, $1) )
+	| ACCUM ID ASSGN ExpNoUn UNTIL ExpNoUn ( Syntax.ACCUM (#1 $2,$4,$6, false, $1) )
+	| REPEAT ID ASSGN ExpNoUn WHILE ExpNoUn ( Syntax.REPEAT (#1 $2,$4,$6, true, $1) )
+	| REPEAT ID ASSGN ExpNoUn UNTIL ExpNoUn ( Syntax.REPEAT (#1 $2,$4,$6, false, $1) )
+	| FOREACH ID IN ExpNoUn DO ExpNoUn ( Syntax.FOREACH (#1 $2,$4,$6, $1) )
+	| IF ExpNoUn THEN ExpNoUn ELSE ExpNoUn ( Syntax.IF ($2,$4,$6, $1) )
+	| CALL ID LPAR ExpList2 RPAR ( Syntax.CALL (#1 $2, $4, $1) )
+	| STRINGS       ( let
+                            val pos = #2 $1
+                            fun build [] = Syntax.STRING ("",pos)
+                              | build [s] = Syntax.STRING (s,pos)
+                              | build ("|>" :: ss) = Syntax.VCONCL(Syntax.STRING ("",pos), build ss,pos)
+                              | build ("<|" :: ss) = Syntax.VCONCR(Syntax.STRING ("",pos), build ss,pos)
+                              | build ("<>" :: ss) = Syntax.VCONCC(Syntax.STRING ("",pos), build ss,pos)
+                              | build ("||" :: ss) = Syntax.HCONC(Syntax.STRING ("",pos), build ss,pos)
+                              | build (s :: "|>" :: ss) = Syntax.VCONCL(Syntax.STRING (s,pos), build ss,pos)
+                              | build (s :: "<|" :: ss) = Syntax.VCONCR(Syntax.STRING (s,pos), build ss,pos)
+                              | build (s :: "<>" :: ss) = Syntax.VCONCC(Syntax.STRING (s,pos), build ss,pos)
+                              | build (s :: "||" :: ss) = Syntax.HCONC(Syntax.STRING (s,pos), build ss,pos)
+                              | build (s :: ss) = Syntax.HCONC(Syntax.STRING (s,pos), build ss,pos)
+                          in
+                            build (#1 $1)
+                          end
+                        )
+        | ExpNoUn HCONC ExpNoUn ( Syntax.HCONC ($1,$3,$2) )
+        | ExpNoUn VCONCL ExpNoUn ( Syntax.VCONCL ($1,$3,$2) )
+        | ExpNoUn VCONCR ExpNoUn ( Syntax.VCONCR ($1,$3,$2) )
+        | ExpNoUn VCONCC ExpNoUn ( Syntax.VCONCC ($1,$3,$2) )
+	| QUESTION REAL	( Syntax.QUESTION (#1 $2, $1) )
+	| FIRST ExpNoUn		( Syntax.FIRST ($2, $1) )
+	| SECOND ExpNoUn	( Syntax.SECOND ($2, $1) )
+	| LBRACK ExpNoUn COMMA ExpNoUn RBRACK ( Syntax.PAIR ($2, $4, $3) )
+	| BANG ExpNoUn	( Syntax.IF ($2, Syntax.EMPTY, Syntax.NUM (1,$1), $1) )
+	| ID TILDE ExpNoUn	( Syntax.DEFAULT (#1 $1, $3, $2) )
+	| LPAR Exp RPAR	( $2 )
+	| LEAST ExpNoUn  Exp	( Syntax.LEAST ($2,$3, $1) )
+	| LEAST MINUS ExpNoUn  Exp	( Syntax.LEAST ($2,$3, $1) )
+	| LEAST SAMPLE ExpNoUn  Exp	( Syntax.LEAST ($2,$3, $1) )
+	| LEAST D ExpNoUn  Exp	( Syntax.LEAST ($2,$3, $1) )
+	| LEAST Z ExpNoUn  Exp	( Syntax.LEAST ($2,$3, $1) )
+	| LARGEST ExpNoUn  Exp ( Syntax.LARGEST ($2,$3, $1) )
+	| LARGEST MINUS ExpNoUn  Exp ( Syntax.LARGEST ($2,$3, $1) )
+	| LARGEST SAMPLE ExpNoUn  Exp ( Syntax.LARGEST ($2,$3, $1) )
+	| LARGEST Z ExpNoUn  Exp ( Syntax.LARGEST ($2,$3, $1) )
+	| LARGEST D ExpNoUn  Exp ( Syntax.LARGEST ($2,$3, $1) )
 
-ExpList1:
-	  Exp		{ $1 }
+ExpList: ( Syntax.EMPTY )
+	| ExpList1	( $1 )
+
+ExpList1: Exp		( $1 )
 	| Exp COMMA ExpList1
-			{ Syntax.CONC ($1,$3, $2) }
-;
+			( Syntax.CONC ($1,$3, $2) )
 
-ExpList2:
-	  Exp		{ [$1] }
+ExpList2: Exp		( [$1] )
 	| Exp COMMA ExpList2
-			{ $1 :: $3 }
-;
+			( $1 :: $3 )
