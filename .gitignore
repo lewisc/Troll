@@ -1,0 +1,7 @@
+*.ui
+*.uo
+troll
+*.exe
+Parser.grm.desc
+Parser.grm.sml
+Parser.grm.sig
