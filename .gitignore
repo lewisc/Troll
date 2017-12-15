@@ -5,3 +5,4 @@ troll
 Parser.grm.desc
 Parser.grm.sml
 Parser.grm.sig
+Lexer.lex.sml

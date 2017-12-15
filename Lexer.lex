@@ -1,5 +1,3 @@
-{
-
  open Lexing;
  val currentLine = ref 1
  val lineStartPos = ref [0]
@@ -59,69 +57,56 @@
 	                => Parser.COMPOSITIONAL pos
        | _              => Parser.ID (s,pos);
 
- }
 
-rule Token = parse
-    [` ` `\t` `\r`]     { Token lexbuf } (* whitespace *)
-  | [`\n` `\012`]       { currentLine := !currentLine+1;
-                          lineStartPos :=  getLexemeStart lexbuf
-                                           :: !lineStartPos;
-                          Token lexbuf } (* newlines *)
-  | "\\" [^ `\n` `\012`]*
-                        { Token lexbuf } (* comment *)
-  | [`0`-`9`]+          { case Int.fromString (getLexeme lexbuf) of
-                               NONE   => lexerError lexbuf "Bad integer"
-                             | SOME i => Parser.NUM (i, getPos lexbuf)
-                        }
-  | "0."[`0`-`9`]+ 	{ case Real.fromString (getLexeme lexbuf) of
-                               NONE   => lexerError lexbuf "Bad number"
-                             | SOME p => Parser.REAL (p, getPos lexbuf)
-                        }
-  | `"`                 { Parser.STRINGS (StringToken lexbuf, getPos lexbuf) }
-  | [`a`-`z` `A`-`Z`]+  { keyword (getLexeme lexbuf, getPos lexbuf) }
-  | `+`                 { Parser.PLUS (getPos lexbuf) }
-  | `-`                 { Parser.MINUS (getPos lexbuf) }
-  | "--"                { Parser.SETMINUS (getPos lexbuf) }
-  | `*`                 { Parser.TIMES (getPos lexbuf) }
-  | `/`                 { Parser.DIVIDE (getPos lexbuf) }
-  | `(`                 { Parser.LPAR (getPos lexbuf) }
-  | `)`                 { Parser.RPAR (getPos lexbuf) }
-  | `,`                 { Parser.COMMA (getPos lexbuf) }
-  | `;`                 { Parser.SEMI (getPos lexbuf) }
-  | `{`                 { Parser.LBRACE (getPos lexbuf) }
-  | `}`                 { Parser.RBRACE (getPos lexbuf) }
-  | ":="                { Parser.ASSGN (getPos lexbuf) }
-  | `=`                 { Parser.EQ (getPos lexbuf) }
-  | "=/="               { Parser.NEQ (getPos lexbuf) }
-  | `<`                 { Parser.LT (getPos lexbuf) }
-  | `>`                 { Parser.GT (getPos lexbuf) }
-  | "<="                { Parser.LE (getPos lexbuf) }
-  | ">="                { Parser.GE (getPos lexbuf) }
-  | ".."                { Parser.DOTDOT (getPos lexbuf) }
-  | `@`                 { Parser.CONC (getPos lexbuf) }
-  | `&`                 { Parser.AND (getPos lexbuf) }
-  | `#`                 { Parser.HASH (getPos lexbuf) }
-  | `?`                 { Parser.QUESTION (getPos lexbuf) }
-  | "||"                { Parser.HCONC (getPos lexbuf) }
-  | "|>"                { Parser.VCONCL (getPos lexbuf) }
-  | "<|"                { Parser.VCONCR (getPos lexbuf) }
-  | "<>"                { Parser.VCONCC (getPos lexbuf) }
-  | `'`                 { Parser.SAMPLE (getPos lexbuf) }
-  | `[`                 { Parser.LBRACK (getPos lexbuf) }
-  | `]`                 { Parser.RBRACK (getPos lexbuf) }
-  | "%1"                { Parser.FIRST (getPos lexbuf) }
-  | "%2"                { Parser.SECOND (getPos lexbuf) }
-  | `~`                 { Parser.TILDE (getPos lexbuf) }
-  | `!`                 { Parser.BANG (getPos lexbuf) }
-  | eof                 { Parser.EOF (getPos lexbuf) }
-  | _                   { lexerError lexbuf "Illegal symbol in input" }
+%%
+%structure TrollLex
+alpha=[A-Za-z];
+digit=[0-9];
+ws = [\ \t];
 
-and  StringToken = parse
-    `"`                 { [] }
-  | "|>" | "<|" | "<>" | "||"
-                        { getLexeme lexbuf :: StringToken lexbuf }
-  | (  [^ `\000`-`\031` `"` `|` `<` `\127`-`\159`]
-     | `|` [^ `\000`-`\031` `"` `|` `>` `\127`-`\159`]
-     | `<` [^ `\000`-`\031` `"` `|` `>` `\127`-`\159`]) *
-                        { getLexeme lexbuf :: StringToken lexbuf }
-;
+%%
+{ws}+                 => ( Token lexbuf );
+[0-9]+                => ( case Int.fromString (getLexeme lexbuf) of
+                           NONE   => lexerError lexbuf "Bad integer"
+                         | SOME i => Parser.NUM (i, getPos lexbuf));
+"0."[0-9]+            => ( case Real.fromString (getLexeme lexbuf) of
+                           NONE   => lexerError lexbuf "Bad number"
+                         | SOME p => Parser.REAL (p, getPos lexbuf));
+"\\" [^ \n]*     => ( Token lexbuf );
+"\""                  => ( Parser.STRINGS (StringToken lexbuf, getPos lexbuf) );
+[a-zA-Z]+            => ( keyword (getLexeme lexbuf, getPos lexbuf) );
+"+"                   => ( Parser.PLUS (getPos lexbuf) );
+"-"                   => ( Parser.MINUS (getPos lexbuf) );
+"--"                  => ( Parser.SETMINUS (getPos lexbuf) );
+"*"                   => ( Parser.TIMES (getPos lexbuf) );
+"/"                   => ( Parser.DIVIDE (getPos lexbuf) );
+"("                   => ( Parser.LPAR (getPos lexbuf) );
+")"                   => ( Parser.RPAR (getPos lexbuf) );
+","                   => ( Parser.COMMA (getPos lexbuf) );
+";"                   => ( Parser.SEMI (getPos lexbuf) );
+"{"                   => ( Parser.LBRACE (getPos lexbuf) );
+"}"                   => ( Parser.RBRACE (getPos lexbuf) );
+":="                  => ( Parser.ASSGN (getPos lexbuf) );
+"="                   => ( Parser.EQ (getPos lexbuf) );
+"=/="                 => ( Parser.NEQ (getPos lexbuf) );
+"<"                   => ( Parser.LT (getPos lexbuf) );
+">"                   => ( Parser.GT (getPos lexbuf) );
+"<="                  => ( Parser.LE (getPos lexbuf) );
+">="                  => ( Parser.GE (getPos lexbuf) );
+".."                  => ( Parser.DOTDOT (getPos lexbuf) );
+"@"                   => ( Parser.CONC (getPos lexbuf) );
+"&"                   => ( Parser.AND (getPos lexbuf) );
+"#"                   => ( Parser.HASH (getPos lexbuf) );
+"?"                   => ( Parser.QUESTION (getPos lexbuf) );
+"||"                  => ( Parser.HCONC (getPos lexbuf) );
+"|>"                  => ( Parser.VCONCL (getPos lexbuf) );
+"<|"                  => ( Parser.VCONCR (getPos lexbuf) );
+"<>"                  => ( Parser.VCONCC (getPos lexbuf) );
+"'"                   => ( Parser.SAMPLE (getPos lexbuf) );
+"["                   => ( Parser.LBRACK (getPos lexbuf) );
+"]"                   => ( Parser.RBRACK (getPos lexbuf) );
+"%1"                  => ( Parser.FIRST (getPos lexbuf) );
+"%2"                  => ( Parser.SECOND (getPos lexbuf) );
+"~"                   => ( Parser.TILDE (getPos lexbuf) );
+"!"                   => ( Parser.BANG (getPos lexbuf) );
+.                     => ( lexerError lexbuf "Illegal symbol in input" );
