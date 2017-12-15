@@ -1,4 +1,3 @@
-
 val p0 = (0,0)
 
 fun makeUnaryFunction (name,constr) =
@@ -89,28 +88,28 @@ Dice : Decls Exp Decls (Decls1 @ Decls2 @ predef,Exp)
 Decls : Decl Decls (Decl :: Decls)
       | ([])
 
-Decl : FUNCTION ID LPAR Ids RPAR EQ Exp %prec FUNCTION (#1 $2, Syntax.Func ($4, $7, $1))
-(*4*)     | COMPOSITIONAL ID LPAR Exp COMMA IDorUnop COMMA IDorBinop RPAR (#1 $2, Syntax.Comp ($4, $6, $8, $1))
+Decl : FUNCTION ID LPAR Ids RPAR EQ Exp %prec FUNCTION (#1 ID, Syntax.Func (Ids, Exp, FUNCTION1))
+     | COMPOSITIONAL ID LPAR Exp COMMA IDorUnop COMMA IDorBinop RPAR (#1 $2, Syntax.Comp ($4, $6, $8, $1))
 
-IDorUnop : ID     ( #1 $1 )
-         | MINUS  ( "-" )
-         | D      ( "d" )
-         | Z      ( "z" )
-         | SUM    ( "sum" )
-| SIGN		( "sgn" )
-| COUNT		( "count" )
-| MIN		( "min" )
-| MAX		( "max" )
-| MINIMAL	( "minimal" )
-| MAXIMAL	( "maximal" )
-| CHOOSE	( "choose" )
-| DIFFERENT	( "different" )
+IDorUnop : ID        ( #1  ID)
+         | MINUS     ( "-" )
+         | D         ( "d" )
+         | Z         ( "z" )
+         | SUM       ( "sum" )
+         | SIGN		 ( "sgn" )
+         | COUNT     ( "count" )
+         | MIN		 ( "min" )
+         | MAX		 ( "max" )
+         | MINIMAL	 ( "minimal" )
+         | MAXIMAL	 ( "maximal" )
+         | CHOOSE	 ( "choose" )
+         | DIFFERENT ( "different" )
 
-IDorBinop : ID		( #1 $1 )
-	| PLUS		( "+" )
-	| TIMES		( "*" )
-	| CONC		( "U" )
-(*21*)
+IDorBinop : ID		( #1  ID)
+	| PLUS		    ( "+" )
+	| TIMES		    ( "*" )
+	| CONC		    ( "U" )
+
 Ids :   ID		( [#1 $1] )
 	| ID COMMA Ids	( #1 $1 :: $3 )
 
@@ -281,10 +280,8 @@ ExpNoUn : NUM   ( Syntax.NUM $1 )
 ExpList: ( Syntax.EMPTY )
 	| ExpList1	( $1 )
 
-ExpList1: Exp		( $1 )
-	| Exp COMMA ExpList1
-			( Syntax.CONC ($1,$3, $2) )
+ExpList1: Exp		( Exp )
+	| Exp COMMA ExpList1 ( Syntax.CONC (Exp,ExpList1, COMMA) )
 
-ExpList2: Exp		( [$1] )
-	| Exp COMMA ExpList2
-			( $1 :: $3 )
+ExpList2: Exp		( [Exp] )
+	| Exp COMMA ExpList2 ( Exp :: ExpList2 )
