@@ -1,55 +1,55 @@
-structure Tokens = Tokens
+ structure Tokens = Tokens
 
- type pos = int * int
+ type pos = int
 
  type svalue = Tokens.svalue
  type ('a,'b) token = ('a,'b) Tokens.token
  type lexresult  = (svalue,pos) token
 
  val currentLine = ref 1
+ fun eof () = Tokens.EOF(!currentLine, !currentLine)
  val lineStartPos = ref [0]
 
 
 
  fun keyword (s, pos) =
      case s of
-         "D"            => Tokens.D pos
-       | "d"            => Tokens.D pos
-       | "Z"            => Tokens.Z pos
-       | "z"            => Tokens.Z pos
-       | "U"            => Tokens.CONC pos
-       | "sum"          => Tokens.SUM pos
-       | "sgn"          => Tokens.SIGN pos
-       | "mod"          => Tokens.MOD pos
-       | "least"        => Tokens.LEAST pos
-       | "largest"      => Tokens.LARGEST pos
-       | "count"        => Tokens.COUNT pos
-       | "drop"         => Tokens.DROP pos
-       | "keep"         => Tokens.KEEP pos
-       | "pick"         => Tokens.PICK pos
-       | "median"       => Tokens.MEDIAN pos
-       | "let"          => Tokens.LET pos
-       | "in"           => Tokens.IN pos
-       | "repeat"       => Tokens.REPEAT pos
-       | "accumulate"   => Tokens.ACCUM pos
-       | "while"        => Tokens.WHILE pos
-       | "until"        => Tokens.UNTIL pos
-       | "foreach"      => Tokens.FOREACH pos
-       | "do"           => Tokens.DO pos
-       | "if"           => Tokens.IF pos
-       | "then"         => Tokens.THEN pos
-       | "else"         => Tokens.ELSE pos
-       | "min"          => Tokens.MIN pos
-       | "max"          => Tokens.MAX pos
-       | "minimal"      => Tokens.MINIMAL pos
-       | "maximal"      => Tokens.MAXIMAL pos
-       | "choose"       => Tokens.CHOOSE pos
-       | "different"    => Tokens.DIFFERENT pos
-       | "function"     => Tokens.FUNCTION pos
-       | "call"         => Tokens.CALL pos
-       | "compositional"
-	                => Tokens.COMPOSITIONAL pos
-       | _              => Tokens.ID (s,pos);
+         "D"             => Tokens.D (pos, pos)
+       | "d"             => Tokens.D (pos, pos)
+       | "Z"             => Tokens.Z (pos, pos)
+       | "z"             => Tokens.Z (pos, pos)
+       | "U"             => Tokens.CONC (pos, pos)
+       | "sum"           => Tokens.SUM (pos, pos)
+       | "sgn"           => Tokens.SIGN (pos, pos)
+       | "mod"           => Tokens.MOD (pos, pos)
+       | "least"         => Tokens.LEAST (pos, pos)
+       | "largest"       => Tokens.LARGEST (pos, pos)
+       | "count"         => Tokens.COUNT (pos, pos)
+       | "drop"          => Tokens.DROP (pos, pos)
+       | "keep"          => Tokens.KEEP (pos, pos)
+       | "pick"          => Tokens.PICK (pos, pos)
+       | "median"        => Tokens.MEDIAN (pos, pos)
+       | "let"           => Tokens.LET (pos, pos)
+       | "in"            => Tokens.IN (pos, pos)
+       | "repeat"        => Tokens.REPEAT (pos, pos)
+       | "accumulate"    => Tokens.ACCUM (pos, pos)
+       | "while"         => Tokens.WHILE (pos, pos)
+       | "until"         => Tokens.UNTIL (pos, pos)
+       | "foreach"       => Tokens.FOREACH (pos, pos)
+       | "do"            => Tokens.DO (pos, pos)
+       | "if"            => Tokens.IF (pos, pos)
+       | "then"          => Tokens.THEN (pos, pos)
+       | "else"          => Tokens.ELSE (pos, pos)
+       | "min"           => Tokens.MIN (pos, pos)
+       | "max"           => Tokens.MAX (pos, pos)
+       | "minimal"       => Tokens.MINIMAL (pos, pos)
+       | "maximal"       => Tokens.MAXIMAL (pos, pos)
+       | "choose"        => Tokens.CHOOSE (pos, pos)
+       | "different"     => Tokens.DIFFERENT (pos, pos)
+       | "function"      => Tokens.FUNCTION (pos, pos)
+       | "call"          => Tokens.CALL (pos, pos)
+       | "compositional" => Tokens.COMPOSITIONAL (pos, pos)
+       | _               => Tokens.ID (s, pos, pos);
 
 
 %%
@@ -59,48 +59,44 @@ digit=[0-9];
 ws = [\ \t];
 
 %%
-{ws}+                 => ( Token lexbuf );
-[0-9]+                => ( case Int.fromString (getLexeme lexbuf) of
-                           NONE   => lexerError lexbuf "Bad integer"
-                         | SOME i => Tokens.NUM (i, getPos lexbuf));
-"0."[0-9]+            => ( case Real.fromString (getLexeme lexbuf) of
-                           NONE   => lexerError lexbuf "Bad number"
-                         | SOME p => Tokens.REAL (p, getPos lexbuf));
-"\\" [^ \n]*     => ( Token lexbuf );
-"\""                  => ( Tokens.STRINGS (StringToken lexbuf, getPos lexbuf) );
-[a-zA-Z]+            => ( keyword (getLexeme lexbuf, getPos lexbuf) );
-"+"                   => ( Tokens.PLUS (getPos lexbuf) );
-"-"                   => ( Tokens.MINUS (getPos lexbuf) );
-"--"                  => ( Tokens.SETMINUS (getPos lexbuf) );
-"*"                   => ( Tokens.TIMES (getPos lexbuf) );
-"/"                   => ( Tokens.DIVIDE (getPos lexbuf) );
-"("                   => ( Tokens.LPAR (getPos lexbuf) );
-")"                   => ( Tokens.RPAR (getPos lexbuf) );
-","                   => ( Parser.COMMA (getPos lexbuf) );
-";"                   => ( Parser.SEMI (getPos lexbuf) );
-"{"                   => ( Parser.LBRACE (getPos lexbuf) );
-"}"                   => ( Parser.RBRACE (getPos lexbuf) );
-":="                  => ( Parser.ASSGN (getPos lexbuf) );
-"="                   => ( Parser.EQ (getPos lexbuf) );
-"=/="                 => ( Parser.NEQ (getPos lexbuf) );
-"<"                   => ( Parser.LT (getPos lexbuf) );
-">"                   => ( Parser.GT (getPos lexbuf) );
-"<="                  => ( Parser.LE (getPos lexbuf) );
-">="                  => ( Parser.GE (getPos lexbuf) );
-".."                  => ( Parser.DOTDOT (getPos lexbuf) );
-"@"                   => ( Parser.CONC (getPos lexbuf) );
-"&"                   => ( Parser.AND (getPos lexbuf) );
-"#"                   => ( Parser.HASH (getPos lexbuf) );
-"?"                   => ( Parser.QUESTION (getPos lexbuf) );
-"||"                  => ( Parser.HCONC (getPos lexbuf) );
-"|>"                  => ( Parser.VCONCL (getPos lexbuf) );
-"<|"                  => ( Parser.VCONCR (getPos lexbuf) );
-"<>"                  => ( Parser.VCONCC (getPos lexbuf) );
-"'"                   => ( Parser.SAMPLE (getPos lexbuf) );
-"["                   => ( Parser.LBRACK (getPos lexbuf) );
-"]"                   => ( Parser.RBRACK (getPos lexbuf) );
-"%1"                  => ( Parser.FIRST (getPos lexbuf) );
-"%2"                  => ( Parser.SECOND (getPos lexbuf) );
-"~"                   => ( Parser.TILDE (getPos lexbuf) );
-"!"                   => ( Parser.BANG (getPos lexbuf) );
-.                     => ( lexerError lexbuf "Illegal symbol in input" );
+{ws}+                 => ( lex() );
+[0-9]+                => ( Tokens.NUM (valOf (Int.fromString yytext), !currentLine, !currentLine) );
+"0."[0-9]+            => ( Tokens.REAL (valOf (Real.fromString yytext),!currentLine, !currentLine));
+"\\" [^ \n]*          => ( !currentLine; lex() );
+"\""                  => ( lex() );
+[a-zA-Z]+             => ( lex() );
+"+"                   => ( lex() );
+"-"                   => ( lex() );
+"--"                  => ( lex() );
+"*"                   => ( lex() );
+"/"                   => ( lex() );
+"("                   => ( lex() );
+")"                   => ( lex() );
+","                   => ( lex() );
+";"                   => ( lex() );
+"{"                   => ( lex() );
+"}"                   => ( lex() );
+":="                  => ( lex() );
+"="                   => ( lex() );
+"=/="                 => ( lex() );
+"<"                   => ( lex() );
+">"                   => ( lex() );
+"<="                  => ( lex() );
+">="                  => ( lex() );
+".."                  => ( lex() );
+"@"                   => ( lex() );
+"&"                   => ( lex() );
+"#"                   => ( lex() );
+"?"                   => ( lex() );
+"||"                  => ( lex() );
+"|>"                  => ( lex() );
+"<|"                  => ( lex() );
+"<>"                  => ( lex() );
+"'"                   => ( lex() );
+"["                   => ( lex() );
+"]"                   => ( lex() );
+"%1"                  => ( lex() );
+"%2"                  => ( lex() );
+"~"                   => ( lex() );
+"!"                   => ( lex() );
+.                     => ( lex() );

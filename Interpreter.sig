@@ -10,7 +10,7 @@ sig
 
   val rollDice : Syntax.Program -> value
 
-  exception RunError of string*Syntax.pos
+  exception RunError of string
 
   val makeText : value -> value
   val hconc : value*value -> value

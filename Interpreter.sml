@@ -1,7 +1,7 @@
 structure Interpreter :> Interpreter =
 struct
 
-  exception RunError of string*Syntax.pos
+  exception RunError of string
 
   datatype value = VAL of int list
                  | TEXT of string list  (* lines of text *)
@@ -23,7 +23,7 @@ struct
        seed2 := s4;
        if s2>=max orelse s4>=max2 then rand n
        else (s2+s4) mod n + 1)
-    end handle Overflow => raise RunError ("rand overflow",(n,!seed))
+    end handle Overflow => raise RunError ("rand overflow")
 
   fun try p = try1 p 30 (* true with probability p *)
 
@@ -72,7 +72,7 @@ struct
         if n<=m then xs
         else if rand n <= m then x :: pick (m-1) (n-1) xs1
         else pick m (n-1) xs1
-    | pick _ _ _ = raise RunError ("Bad call to pick",(0,0))
+    | pick _ _ _ = raise RunError ("Bad call to pick")
 
   fun lookup x [] = NONE
     | lookup x ((y,v)::table) =
@@ -84,38 +84,38 @@ struct
   let
    fun evalExp exp table =
     case exp of
-      Syntax.NUM (n,p) => VAL [n]
-    | Syntax.ID (x,p) =>
+      Syntax.NUM (n) => VAL [n]
+    | Syntax.ID (x) =>
         (case lookup x table of
 	   SOME v => v
-	 | NONE => raise RunError ("unknown variable: "^x,p))
+	 | NONE => raise RunError ("unknown variable: "^x))
     | Syntax.EMPTY => VAL []
-    | Syntax.CONC (e1,e2,p) =>
+    | Syntax.CONC (e1,e2) =>
         (case (evalExp e1 table, evalExp e2 table) of
            (VAL v1, VAL v2) => VAL (merge v1 v2)
-         | _ => raise RunError ("Args to @ must be collections",p))
-    | Syntax.DROP (e1,e2,p) =>
+         | _ => raise RunError ("Args to @ must be collections"))
+    | Syntax.DROP (e1,e2) =>
         (case (evalExp e1 table, evalExp e2 table) of
            (VAL v1, VAL v2) => VAL (drop v1 v2)
-         | _ => raise RunError ("Args to drop must be collections",p))
-    | Syntax.KEEP (e1,e2,p) =>
+         | _ => raise RunError ("Args to drop must be collections"))
+    | Syntax.KEEP (e1,e2) =>
         (case (evalExp e1 table, evalExp e2 table) of
            (VAL v1, VAL v2) => VAL (keep v1 v2)
-         | _ => raise RunError ("Args to keep must be collections",p))
-    | Syntax.SETMINUS (e1,e2,p) =>
+         | _ => raise RunError ("Args to keep must be collections"))
+    | Syntax.SETMINUS (e1,e2) =>
         (case (evalExp e1 table, evalExp e2 table) of
            (VAL v1, VAL v2) => VAL (setminus v1 v2)
-         | _ => raise RunError ("Args to setminus must be collections",p))
-    | Syntax.CHOOSE (e1,p) =>
+         | _ => raise RunError ("Args to setminus must be collections"))
+    | Syntax.CHOOSE (e1) =>
         (case (evalExp e1 table) of
-	   VAL [] => raise RunError ("Arg to choose most be non-empty",p)
+	   VAL [] => raise RunError ("Arg to choose most be non-empty")
          | VAL ns => VAL [List.nth (ns, rand (List.length ns) - 1)]
-         | _  => raise RunError ("Arg to choose must be a collection",p))
-    | Syntax.PICK (e1,e2,p) =>
+         | _  => raise RunError ("Arg to choose must be a collection"))
+    | Syntax.PICK (e1,e2) =>
         (case (evalExp e1 table, evalExp e2 table) of
            (VAL ns, VAL [n]) => VAL (pick n (List.length ns) ns)
-         | _ => raise RunError ("The first arg to pick must be a collection, and the second a number",p))
-    | Syntax.DIFFERENT (e1,p) =>
+         | _ => raise RunError ("The first arg to pick must be a collection, and the second a number"))
+    | Syntax.DIFFERENT (e1) =>
         let
           fun noDups [] = []
             | noDups (x::xs) =
@@ -123,100 +123,100 @@ struct
         in
           case evalExp e1 table of
             VAL v => VAL (noDups v)
-          | _ => raise RunError ("Arg to different must be a collection",p)
+          | _ => raise RunError ("Arg to different must be a collection")
         end
-    | Syntax.PLUS (e1,e2,p) =>
+    | Syntax.PLUS (e1,e2) =>
         (case (evalExp e1 table, evalExp e2 table) of
 	   (VAL [n1], VAL [n2]) => VAL [n1+n2]
-	 | _ => raise RunError ("illegal arg to +",p))
-    | Syntax.MINUS (e1,e2,p) =>
+	 | _ => raise RunError ("illegal arg to +"))
+    | Syntax.MINUS (e1,e2) =>
         (case (evalExp e1 table, evalExp e2 table) of
 	   (VAL [n1], VAL [n2]) => VAL [n1-n2]
-	 | _ => raise RunError ("illegal arg to -",p))
-    | Syntax.UMINUS (e1,p) =>
+	 | _ => raise RunError ("illegal arg to -"))
+    | Syntax.UMINUS (e1) =>
         (case (evalExp e1 table) of
 	   VAL [n1] => VAL [~n1]
-	 | _ => raise RunError ("illegal arg to -",p))
-    | Syntax.TIMES (e1,e2,p) =>
+	 | _ => raise RunError ("illegal arg to -"))
+    | Syntax.TIMES (e1,e2) =>
         (case (evalExp e1 table, evalExp e2 table) of
 	   (VAL [n1], VAL [n2]) => VAL [n1*n2]
-	 | _ => raise RunError ("illegal arg to *",p))
-    | Syntax.DIVIDE (e1,e2,p) =>
+	 | _ => raise RunError ("illegal arg to *"))
+    | Syntax.DIVIDE (e1,e2) =>
         (case (evalExp e1 table, evalExp e2 table) of
 	       (VAL [], VAL [n2]) => VAL [0]
 	     | (VAL [n1], VAL [n2]) =>
-	        if n2=0 then raise RunError ("division by 0",p)
+	        if n2=0 then raise RunError ("division by 0")
 	        else VAL [n1 div n2]
-	     | _ => raise RunError ("illegal arg to /",p))
-    | Syntax.MOD (e1,e2,p) =>
+	     | _ => raise RunError ("illegal arg to /"))
+    | Syntax.MOD (e1,e2) =>
         (case (evalExp e1 table, evalExp e2 table) of
 	       (VAL [], VAL [n2]) => VAL [0]
 	     | (VAL [n1], VAL [n2]) =>
-	          if n2=0 then raise RunError ("modulo by 0",p)
+	          if n2=0 then raise RunError ("modulo by 0")
 	          else VAL [n1 mod n2]
-	     | _ => raise RunError ("illegal arg to mod",p))
-    | Syntax.D (e1,p) =>
+	     | _ => raise RunError ("illegal arg to mod"))
+    | Syntax.D (e1) =>
         (case (evalExp e1 table) of
 	   VAL [n]   =>
-	      if n<=0 then raise RunError ("Arg to d or D most be >0",p)
+	      if n<=0 then raise RunError ("Arg to d or D most be >0")
 	      else VAL [rand n]
-	 | _ => raise RunError ("illegal arg to d or D",p))
-    | Syntax.Z (e1,p) =>
+	 | _ => raise RunError ("illegal arg to d or D"))
+    | Syntax.Z (e1) =>
         (case (evalExp e1 table) of
 	   VAL [n]   =>
-	      if n<0 then raise RunError ("Arg to z or Z most be >=0",p)
+	      if n<0 then raise RunError ("Arg to z or Z most be >=0")
 	      else VAL [rand (n+1) - 1]
-	 | _ => raise RunError ("illegal arg to z or Z",p))
-    | Syntax.SIGN (e1,p) =>
+	 | _ => raise RunError ("illegal arg to z or Z"))
+    | Syntax.SIGN (e1) =>
         (case (evalExp e1 table) of
 	   VAL [n]   => VAL [Int.sign n]
-	 | _ => raise RunError ("illegal arg to sgn",p))
-    | Syntax.SUM (e1,p) =>
+	 | _ => raise RunError ("illegal arg to sgn"))
+    | Syntax.SUM (e1) =>
         (case (evalExp e1 table) of
 	   VAL v => VAL [List.foldl (op +) 0 v]
-	 | _ => raise RunError ("illegal arg to sum",p))
-    | Syntax.COUNT (e1,p) =>
+	 | _ => raise RunError ("illegal arg to sum"))
+    | Syntax.COUNT (e1) =>
         (case (evalExp e1 table) of
 	   VAL v => VAL [List.length v]
-	 | _ => raise RunError ("illegal arg to count",p))
-    | Syntax.LEAST (e1,e2,p) =>
+	 | _ => raise RunError ("illegal arg to count"))
+    | Syntax.LEAST (e1,e2) =>
         (case (evalExp e1 table,evalExp e2 table) of
 	   (VAL [n], VAL l) =>
-	      if n<0 then raise RunError ("Negative arg to least",p)
+	      if n<0 then raise RunError ("Negative arg to least")
 	      else if List.length l <= n then VAL l
 	      else VAL (List.take (l, n))
-	 | _ => raise RunError ("illegal arg to least",p))
-    | Syntax.LARGEST (e1,e2,p) =>
+	 | _ => raise RunError ("illegal arg to least"))
+    | Syntax.LARGEST (e1,e2) =>
         (case (evalExp e1 table,evalExp e2 table) of
 	   (VAL [n], VAL l) =>
-	      if n<0 then raise RunError ("Negative arg to largest",p)
+	      if n<0 then raise RunError ("Negative arg to largest")
 	      else if List.length l <= n then VAL l
 	      else VAL (List.drop (l, List.length l - n))
-	 | _ => raise RunError ("illegal arg to largest",p))
-    | Syntax.MEDIAN (e1,p) =>
+	 | _ => raise RunError ("illegal arg to largest"))
+    | Syntax.MEDIAN (e1) =>
         (case (evalExp e1 table) of
-           VAL [] => raise RunError ("Can't take median of empty collection",p)
+           VAL [] => raise RunError ("Can't take median of empty collection")
          | VAL vs => VAL [List.nth (vs, List.length vs div 2)]
-         | _ => raise RunError  ("Can't take median of text",p))
-    | Syntax.MINIMAL (e,p) =>
+         | _ => raise RunError  ("Can't take median of text"))
+    | Syntax.MINIMAL (e) =>
         (case (evalExp e table) of
 	   VAL [] => VAL []
 	 | VAL (a::v) => let fun g [] = [a]
                                | g (b::bs) = if a=b then b:: g bs else [a]
 			 in VAL (g v) end
-	 | _ => raise RunError ("illegal arg to minimal",p))
-    | Syntax.MAXIMAL (e,p) =>
+	 | _ => raise RunError ("illegal arg to minimal"))
+    | Syntax.MAXIMAL (e) =>
         (case (evalExp e table) of
 	   VAL [] => VAL []
 	 | VAL (a::v) => let fun g [] x xs = x::xs
                                | g (b::bs) x xs =
 				   if b=x then g bs x (b::xs) else g bs b []
 			 in VAL (g v a []) end
-	 | _ => raise RunError ("illegal arg to maximal",p))
-    | Syntax.HASH (e1,e2,p) =>
+	 | _ => raise RunError ("illegal arg to maximal"))
+    | Syntax.HASH (e1,e2) =>
         (case (evalExp e1 table) of
 	   VAL [n] =>
-	      if n<0 then raise RunError ("Negative arg to #",p)
+	      if n<0 then raise RunError ("Negative arg to #")
 	      else
 	        VAL (foldr (fn (a,b) => merge a b) []
 	              (List.tabulate
@@ -224,54 +224,54 @@ struct
                           (fn x =>
                              case evalExp e2 table of
                                VAL v => v
-                             | _ => raise RunError ("illegal arg2 to #",p)))))
-	 | _ => raise RunError ("illegal arg1 to #",p))
-    | Syntax.AND (e1,e2,p) =>
+                             | _ => raise RunError ("illegal arg2 to #")))))
+	 | _ => raise RunError ("illegal arg1 to #"))
+    | Syntax.AND (e1,e2) =>
         (case (evalExp e1 table) of
 	   VAL [] => VAL []
          | _      => evalExp e2 table)
-    | Syntax.EQ (e1,e2,p) =>
+    | Syntax.EQ (e1,e2) =>
         (case (evalExp e1 table, evalExp e2 table) of
 	   (VAL [n1], VAL l) => VAL (List.filter (fn x=>n1=x) l)
-	 | _ => raise RunError ("illegal arg to =",p))
-    | Syntax.NEQ (e1,e2,p) =>
+	 | _ => raise RunError ("illegal arg to ="))
+    | Syntax.NEQ (e1,e2) =>
         (case (evalExp e1 table, evalExp e2 table) of
 	   (VAL [n1], VAL l) => VAL (List.filter (fn x=>n1<>x) l)
-	 | _ => raise RunError ("illegal arg to =/=",p))
-    | Syntax.LT (e1,e2,p) =>
+	 | _ => raise RunError ("illegal arg to =/="))
+    | Syntax.LT (e1,e2) =>
         (case (evalExp e1 table, evalExp e2 table) of
 	   (VAL [n1], VAL l) => VAL (List.filter (fn x=>n1<x) l)
-	 | _ => raise RunError ("illegal arg to <",p))
-    | Syntax.GT (e1,e2,p) =>
+	 | _ => raise RunError ("illegal arg to <"))
+    | Syntax.GT (e1,e2) =>
         (case (evalExp e1 table, evalExp e2 table) of
 	   (VAL [n1], VAL l) => VAL (List.filter (fn x=>n1>x) l)
-	 | _ => raise RunError ("illegal arg to >",p))
-    | Syntax.LE (e1,e2,p) =>
+	 | _ => raise RunError ("illegal arg to >"))
+    | Syntax.LE (e1,e2) =>
         (case (evalExp e1 table, evalExp e2 table) of
 	   (VAL [n1], VAL l) => VAL (List.filter (fn x=>n1<=x) l)
-	 | _ => raise RunError ("illegal arg to <=",p))
-    | Syntax.GE (e1,e2,p) =>
+	 | _ => raise RunError ("illegal arg to <="))
+    | Syntax.GE (e1,e2) =>
         (case (evalExp e1 table, evalExp e2 table) of
 	   (VAL [n1], VAL l) => VAL (List.filter (fn x=>n1>=x) l)
-	 | _ => raise RunError ("illegal arg to >=",p))
-    | Syntax.FROMTO (e1,e2,p) =>
+	 | _ => raise RunError ("illegal arg to >="))
+    | Syntax.FROMTO (e1,e2) =>
         (case (evalExp e1 table, evalExp e2 table) of
 	   (VAL [n1], VAL [n2]) => VAL (List.tabulate (n2-n1+1,fn x=>x+n1))
-	 | _ => raise RunError ("illegal arg to ..",p))
-    | Syntax.LET (x,e1,e2,p) =>
+	 | _ => raise RunError ("illegal arg to .."))
+    | Syntax.LET (x,e1,e2) =>
         evalExp e2 ((x,evalExp e1 table)::table)
-    | Syntax.ACCUM (x,e1,e2,continue,p) =>
+    | Syntax.ACCUM (x,e1,e2,continue) =>
         (case evalExp e1 table of
            VAL v =>
  	     VAL (List.foldr (fn (a,b) => merge a b) []
-		             (iterate v x e1 e2 continue table decs p))
-         | _ => raise RunError ("illegal arg to accumulate",p))
-    | Syntax.REPEAT (x,e1,e2,continue,p) =>
+		             (iterate v x e1 e2 continue table decs))
+         | _ => raise RunError ("illegal arg to accumulate"))
+    | Syntax.REPEAT (x,e1,e2,continue) =>
         (case evalExp e1 table of
            VAL v =>
-	     VAL (List.last (iterate v x e1 e2 continue table decs p))
-         | _ => raise RunError ("illegal arg to repeat",p))
-    | Syntax.FOREACH (x,e1,e2,p) =>
+	     VAL (List.last (iterate v x e1 e2 continue table decs))
+         | _ => raise RunError ("illegal arg to repeat"))
+    | Syntax.FOREACH (x,e1,e2) =>
         (case evalExp e1 table of
           VAL v =>
             VAL (foldr (fn (a,b) => merge a b) []
@@ -279,23 +279,23 @@ struct
                                (case evalExp e2 ((x,VAL [w])::table) of
                                   VAL v1 => v1
                                 | _ => raise RunError
-                                             ("illegal arg2 to foreach",p)))
+                                             ("illegal arg2 to foreach")))
 			    v))
-         | _ => raise RunError ("illegal arg1 to foreach",p))
-    | Syntax.IF (e1,e2,e3,p) =>
+         | _ => raise RunError ("illegal arg1 to foreach"))
+    | Syntax.IF (e1,e2,e3) =>
         (case evalExp e1 table of
            VAL [] => evalExp e3 table  (* false *)
 	 | VAL _ => evalExp e2 table   (* true *)
-         | _ => raise RunError ("illegal arg to if",p))
-    | Syntax.CALL (f,args,p) =>
-        callFun (f, List.map (fn e => evalExp e table) args, decs, p)
-    | Syntax.STRING (ss,p) => TEXT [ss]
-    | Syntax.SAMPLE (e,p) =>
+         | _ => raise RunError ("illegal arg to if"))
+    | Syntax.CALL (f,args) =>
+        callFun (f, List.map (fn e => evalExp e table) args, decs)
+    | Syntax.STRING (ss) => TEXT [ss]
+    | Syntax.SAMPLE (e) =>
         makeText (evalExp e table)
-    | Syntax.SAMPLES (e1,e2,p) =>
+    | Syntax.SAMPLES (e1,e2) =>
         (case (evalExp e1 table) of
 	   VAL [n] =>
-	      if n<0 then raise RunError ("Negative arg1 to '",p)
+	      if n<0 then raise RunError ("Negative arg1 to '")
 	      else
                 let
                   fun samples 0 = TEXT []
@@ -305,28 +305,28 @@ struct
                 in
 		  samples n
 		end
-	 | _ => raise RunError ("illegal arg1 to '",p))
-    | Syntax.HCONC (e1,e2,p) =>
+	 | _ => raise RunError ("illegal arg1 to '"))
+    | Syntax.HCONC (e1,e2) =>
         hconc (evalExp e1 table, evalExp e2 table)
-    | Syntax.VCONCL (e1,e2,p) =>
+    | Syntax.VCONCL (e1,e2) =>
         vconcl (evalExp e1 table, evalExp e2 table)
-    | Syntax.VCONCR (e1,e2,p) =>
+    | Syntax.VCONCR (e1,e2) =>
         vconcr (evalExp e1 table, evalExp e2 table)
-    | Syntax.VCONCC (e1,e2,p) =>
+    | Syntax.VCONCC (e1,e2) =>
         vconcc (evalExp e1 table, evalExp e2 table)
-    | Syntax.QUESTION (prob,p) =>
+    | Syntax.QUESTION (prob) =>
         if try prob then VAL [1] else VAL []
-    | Syntax.PAIR (e1,e2,p) =>
+    | Syntax.PAIR (e1,e2) =>
         PAIR (evalExp e1 table, evalExp e2 table)
-    | Syntax.FIRST (e1,p) =>
+    | Syntax.FIRST (e1) =>
         (case evalExp e1 table of
            PAIR (v,w) => v
-         | _ => raise RunError ("Argument to %1 must be a pair\n", p))
-    | Syntax.SECOND (e1,p) =>
+         | _ => raise RunError ("Argument to %1 must be a pair\n"))
+    | Syntax.SECOND (e1) =>
         (case evalExp e1 table of
            PAIR (v,w) => w
-         | _ => raise RunError ("Argument to %2 must be a pair\n", p))
-    | Syntax.DEFAULT (x,e1,p) =>
+         | _ => raise RunError ("Argument to %2 must be a pair\n"))
+    | Syntax.DEFAULT (x,e1) =>
         (case lookup x table of
 	   SOME v => v
 	 | NONE =>  evalExp e1 table)
@@ -335,41 +335,41 @@ struct
   end
 
 
-  and iterate v x e1 e2 continue table decs pos =
+  and iterate v x e1 e2 continue table decs =
         case evalExp0 e2 ((x,VAL v)::table) decs of
           VAL test =>
             v :: (if not (null test) = continue
 	          then
                     (case evalExp0 e1 table decs of
-                       VAL v1 => iterate v1 x e1 e2 continue table decs pos
-                     | _ => raise RunError ("illegal arg to iterator",pos))
+                       VAL v1 => iterate v1 x e1 e2 continue table decs
+                     | _ => raise RunError ("illegal arg to iterator"))
                   else [])
-        | _ => raise RunError ("illegal arg to iterator",pos)
+        | _ => raise RunError ("illegal arg to iterator")
 
-  and callFun (f, vs, decs, p) =
+  and callFun (f, vs, decs) =
     case lookup f decs of
-      NONE => raise RunError ("Unknown function: "^f,p)
-    | SOME (Syntax.Func(pars, body, pos)) =>
+      NONE => raise RunError ("Unknown function: "^f)
+    | SOME (Syntax.Func(pars, body)) =>
         let
           fun zip [] [] = []
             | zip (x::xs) (y::ys) = (x,y) :: zip xs ys
-            | zip _ _ = raise RunError ("Wrong number of args to "^f,p)
+            | zip _ _ = raise RunError ("Wrong number of args to "^f)
         in 
           evalExp0 body (zip pars vs) decs
         end
-    | SOME (Syntax.Comp(empty, single, union, pos)) =>
+    | SOME (Syntax.Comp(empty, single, union)) =>
         (case vs of
-           [VAL v] => compositional (v, empty, single, union, decs, pos)
-         | _ => raise RunError ("Wrong number of args to "^f,p))
+           [VAL v] => compositional (v, empty, single, union, decs)
+         | _ => raise RunError ("Wrong number of args to "^f))
 
-  and compositional ([], empty, single, union, decs, p) =
+  and compositional ([], empty, single, union, decs) =
         evalExp0 empty [] decs
-    | compositional ((x::xs), empty, single, union, decs, p) =
+    | compositional ((x::xs), empty, single, union, decs) =
         let
-	  val v1 = callFun (single, [VAL [x]], decs, p)
-          val v2 = compositional (xs, empty, single, union, decs, p)
+	  val v1 = callFun (single, [VAL [x]], decs)
+          val v2 = compositional (xs, empty, single, union, decs)
         in
-	  callFun (union, [v1,v2], decs, p)
+	  callFun (union, [v1,v2], decs)
         end
 
 
@@ -386,7 +386,7 @@ struct
          (case (makeText v, makeText w) of
             (TEXT [s1], TEXT [s2]) => TEXT ["[" ^ s1 ^ " , " ^ s2 ^ "]"]
           | (TEXT ss1, TEXT ss2) => TEXT (["["] @ ss1 @ [" , "] @ ss2 @ [ "]"])
-          | _  => raise RunError ("Can not convert to text\n", (0,0)))
+          | _  => raise RunError ("Can not convert to text\n"))
      | makeText text = text
  
   (* make string of n spaces *)

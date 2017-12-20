@@ -29,6 +29,8 @@ struct
 
   (* merge two sorted lists of integers *)
 
+  fun mostlyEqual a b = (a - b) < 0.01
+
   fun mergeI [] l2 = l2
     | mergeI l1 [] = l1
     | mergeI (l1 as (a::l11)) (l2 as (b::l22)) =
@@ -121,9 +123,7 @@ struct
   (* build CHOICE (p,d1,d2) with optimisations *)
   (* if d1 and d2 are both normalized, result must also be *)
 
-  fun choice (1.0, d1, d2) = d1
-    | choice (0.0, d1, d2) = d2
-    | choice (p, BOTTOM, BOTTOM) = BOTTOM
+  fun choice (p, BOTTOM, BOTTOM) = BOTTOM
     | choice (p, BOTTOM, d2) = choice (1.0-p, d2, BOTTOM)
     | choice (p, CHOICE (q,d1,d2), BOTTOM) =
         choice (p*q, d1, choice((p-p*q)/(1.0-p*q), d2, BOTTOM))
@@ -166,11 +166,11 @@ struct
            choice (p+p2-p*p2,
                    UNION (choice (p/(p+p2-p*p2), d2, d3), d1),
                    d5)
-         else if d2=d3 then
+         else if mostlyEqual(d2,d3) then
            choice (p+p2-p*p2,
                    UNION (choice (p/(p+p2-p*p2), d1, d4), d2),
                    d5)
-         else if d2=d4 then
+         else if mostlyEqual(d2,d4) then
            choice (p+p2-p*p2,
                    UNION (choice (p/(p+p2-p*p2), d1, d3), d2),
                    d5)
@@ -181,15 +181,15 @@ struct
          else if d2=d3 then choice(p*p1, d1, d2)
          else choice (p*p1, d1, choice ((p-p*p1)/(1.0-p*p1), d2, d3))
     | choice (p, d1, d as (CHOICE (p1,d2,d3))) =
-        if d1=d then d1
-        else if d1=d2 then choice (p+p1-p*p1, d1, d3)
-        else if d1=d3 then choice (p-p1+p*p1, d1, d2)
+        if mostlyEqual(d1,d) then d1
+        else if mostlyEqual(d1,d2) then choice (p+p1-p*p1, d1, d3)
+        else if mostlyEqual(d1,d3) then choice (p-p1+p*p1, d1, d2)
         else CHOICE (p,d1,d)
     | choice (p,d1,UNION (d2,d as STAR (q,d3,d4))) =
-        if p=q andalso d1=d3 andalso d2=d4 then d
+        if mostlyEqual(p,q) andalso mostlyEqual(d1,d3) andalso mostlyEqual(d2,d4) then d
 	else CHOICE (p,d1,UNION (d2,d))
     | choice (p, d1, d2) =
-        if d1=d2 then d1
+        if mostlyEqual(d1,d2) then d1
         else CHOICE (p, d1, d2)
 
   (* build UNION (d1,d2) with optimisations *)
@@ -202,15 +202,15 @@ struct
     | union (BOTTOM, d)    = BOTTOM
     | union (d, BOTTOM)    = BOTTOM
     | union (d1 as UNION (d3,d4), d2 as UNION (d5,d6)) =
-        if d1=d2 then TWICE d1
-	else if d3=d2 then union (d4,twice d2)
-	else if d4=d2 then union (d3,twice d2)
-	else if d5=d1 then union (d6,twice d1)
-	else if d6=d1 then union (d5,twice d1)
-	else if d3=d5 then union (union (d4,d6), twice d3)
-	else if d4=d5 then union (union (d3,d6), twice d4)
-	else if d3=d6 then union (union (d4,d5), twice d3)
-	else if d4=d6 then union (union (d3,d5), twice d4)
+        if mostlyEqual(d1,d2) then TWICE d1
+	else if mostlyEqual(d3,d2) then union (d4,twice d2)
+	else if mostlyEqual(d4,d2) then union (d3,twice d2)
+	else if mostlyEqual(d5,d1) then union (d6,twice d1)
+	else if mostlyEqual(d6,d1) then union (d5,twice d1)
+	else if mostlyEqual(d3,d5) then union (union (d4,d6), twice d3)
+	else if mostlyEqual(d4,d5) then union (union (d3,d6), twice d4)
+	else if mostlyEqual(d3,d6) then union (union (d4,d5), twice d3)
+	else if mostlyEqual(d4,d6) then union (union (d3,d5), twice d4)
 	else union (d3, union (d4, d2))
     | union (d1,d2) = UNION (d1,d2)
 
@@ -220,9 +220,7 @@ struct
     | twice d       = TWICE d
 
   (* build STAR (p,d1,d2) with optimisations *)
-  fun star (0.0,d1,d2) = BOTTOM
-    | star (1.0,d1,d2) = d1
-    | star (p,d1,VAL (Interpreter.VAL [])) = d1
+  fun star (p,d1,VAL (Interpreter.VAL [])) = d1
     | star (p,d1,d2) = STAR (p,d1,d2)
 
   (* combine two UNION-free distribution expressions with function g *)
