@@ -1,3 +1,5 @@
+structure Rescope =
+struct
 (* rescopes let-expressions to speed up probability calculations *)
 
 (* count the number of occurrences of a variable x in an expression *)
@@ -708,3 +710,4 @@ fun rescope e =
   | Syntax.FIRST (e1) => Syntax.FIRST (rescope e1)
   | Syntax.SECOND (e1) => Syntax.SECOND (rescope e1)
   | Syntax.DEFAULT (y,e1) => Syntax.DEFAULT (y,rescope e1)
+end

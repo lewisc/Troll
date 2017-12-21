@@ -7,7 +7,7 @@ sig
 
   val distribDice : Syntax.Program -> pValue list
 
-  exception DistribError of string*Syntax.pos
+  exception DistribError of string
 
   val maxiterations : int ref
 

@@ -5,7 +5,7 @@ struct
  
   type pValue = value * real
 
-  exception DistribError of string*Syntax.pos
+  exception DistribError of string
   exception Recursive
 
 
@@ -95,6 +95,8 @@ struct
 		| STAR of real * dist * dist (* accumulating loop *)
 		(* STAR (p,d1,d2) == CHOICE (p,d1,UNION(d2,STAR(p,d1,d2))) *)
 
+   fun distMostlyEqual part1 part2 = false
+
   (* print distribution expression (for testing purposes) *)
 
   fun printD (VAL v) = "VAL " ^ printVal v
@@ -158,38 +160,38 @@ struct
          | GREATER => choice (1.0-p, d4, d1))
     | choice (p, d11 as (UNION (d1,d2)),
                  d22 as (CHOICE (p2, UNION (d3,d4), d5))) =
-         if d1=d3 then
+         if distMostlyEqual d1 d3 then
            choice (p+p2-p*p2,
                    UNION (choice (p/(p+p2-p*p2), d2, d4), d1),
                    d5)
-         else if d1=d4 then
+         else if distMostlyEqual d1 d4 then
            choice (p+p2-p*p2,
                    UNION (choice (p/(p+p2-p*p2), d2, d3), d1),
                    d5)
-         else if mostlyEqual(d2,d3) then
+         else if distMostlyEqual d2 d3 then
            choice (p+p2-p*p2,
                    UNION (choice (p/(p+p2-p*p2), d1, d4), d2),
                    d5)
-         else if mostlyEqual(d2,d4) then
+         else if distMostlyEqual d2 d4 then
            choice (p+p2-p*p2,
                    UNION (choice (p/(p+p2-p*p2), d1, d3), d2),
                    d5)
          else CHOICE (p, d11, d22)
     | choice (p, d as (CHOICE (p1,d1,d2)), d3) =
-         if d=d3 then d
-         else if d1=d3 then choice(p*p1-p+1.0, d1, d2)
-         else if d2=d3 then choice(p*p1, d1, d2)
+         if distMostlyEqual d d3 then d
+         else if distMostlyEqual d1 d3 then choice(p*p1-p+1.0, d1, d2)
+         else if distMostlyEqual d2 d3 then choice(p*p1, d1, d2)
          else choice (p*p1, d1, choice ((p-p*p1)/(1.0-p*p1), d2, d3))
     | choice (p, d1, d as (CHOICE (p1,d2,d3))) =
-        if mostlyEqual(d1,d) then d1
-        else if mostlyEqual(d1,d2) then choice (p+p1-p*p1, d1, d3)
-        else if mostlyEqual(d1,d3) then choice (p-p1+p*p1, d1, d2)
+        if distMostlyEqual d1 d then d1
+        else if distMostlyEqual d1 d2 then choice (p+p1-p*p1, d1, d3)
+        else if distMostlyEqual d1 d3 then choice (p-p1+p*p1, d1, d2)
         else CHOICE (p,d1,d)
     | choice (p,d1,UNION (d2,d as STAR (q,d3,d4))) =
-        if mostlyEqual(p,q) andalso mostlyEqual(d1,d3) andalso mostlyEqual(d2,d4) then d
+        if distMostlyEqual p q andalso distMostlyEqual d1 d3 andalso distMostlyEqual d2 d4 then d
 	else CHOICE (p,d1,UNION (d2,d))
     | choice (p, d1, d2) =
-        if mostlyEqual(d1,d2) then d1
+        if distMostlyEqual d1 d2 then d1
         else CHOICE (p, d1, d2)
 
   (* build UNION (d1,d2) with optimisations *)
@@ -202,15 +204,15 @@ struct
     | union (BOTTOM, d)    = BOTTOM
     | union (d, BOTTOM)    = BOTTOM
     | union (d1 as UNION (d3,d4), d2 as UNION (d5,d6)) =
-        if mostlyEqual(d1,d2) then TWICE d1
-	else if mostlyEqual(d3,d2) then union (d4,twice d2)
-	else if mostlyEqual(d4,d2) then union (d3,twice d2)
-	else if mostlyEqual(d5,d1) then union (d6,twice d1)
-	else if mostlyEqual(d6,d1) then union (d5,twice d1)
-	else if mostlyEqual(d3,d5) then union (union (d4,d6), twice d3)
-	else if mostlyEqual(d4,d5) then union (union (d3,d6), twice d4)
-	else if mostlyEqual(d3,d6) then union (union (d4,d5), twice d3)
-	else if mostlyEqual(d4,d6) then union (union (d3,d5), twice d4)
+         if distMostlyEqual d1 d2 then TWICE d1
+	else if distMostlyEqual d3 d2 then union (d4,twice d2)
+	else if distMostlyEqual d4 d2 then union (d3,twice d2)
+	else if distMostlyEqual d5 d1 then union (d6,twice d1)
+	else if distMostlyEqual d6 d1 then union (d5,twice d1)
+	else if distMostlyEqual d3 d5 then union (union (d4,d6), twice d3)
+	else if distMostlyEqual d4 d5 then union (union (d3,d6), twice d4)
+	else if distMostlyEqual d3 d6 then union (union (d4,d5), twice d3)
+	else if distMostlyEqual d4 d6 then union (union (d3,d5), twice d4)
 	else union (d3, union (d4, d2))
     | union (d1,d2) = UNION (d1,d2)
 
@@ -225,7 +227,7 @@ struct
 
   (* combine two UNION-free distribution expressions with function g *)
 
-  fun unionWith d1 d2 g pos =
+  fun unionWith d1 d2 g =
     let
        fun uw (VAL v) (VAL w) = g (v, w)
 	 | uw BOTTOM _ = BOTTOM
@@ -235,14 +237,14 @@ struct
          | uw (d0 as (CHOICE (p,d1,d2))) d3 =
 	     choice (p, uw d1 d3, uw d2 d3)
          | uw _ _ =
-             raise DistribError ("Singleton expected", pos)
+             raise DistribError ("Singleton expected")
     in
       uw d1 d2
     end
 
   (* twiceWith d g pos == unionWith d d g pos *)
 
-  and twiceWith d g pos =
+  and twiceWith d g =
     let
       fun tw (VAL v) = g (v, v)
         | tw (CHOICE (p,d1,d2)) =
@@ -250,10 +252,10 @@ struct
                     tw d1,
                     choice((1.0-p)*(1.0-p)/(1.0-p*p),
                        tw d2,
-                       unionWith d1 d2 g pos))
+                       unionWith d1 d2 g ))
         | tw BOTTOM = BOTTOM
         | tw _ =
-        raise DistribError ("internal error twiceWith",pos)
+        raise DistribError ("internal error twiceWith")
       in
         tw d
       end
@@ -267,11 +269,11 @@ struct
 		unionWith d2 (starWith p d1 d2 g (i-1) pos) g pos)
 *)
 
-  fun starWith1 p d1 d2 d3 g 0 pos = BOTTOM
-    | starWith1 p d1 d2 d3 g i pos =
+  fun starWith1 p d1 d2 d3 g 0 = BOTTOM
+    | starWith1 p d1 d2 d3 g i =
         choice(p,
 	       d3,
-	       starWith1 p d1 d2 (unionWith d2 d3 g pos) g (i-1) pos)
+	       starWith1 p d1 d2 (unionWith d2 d3 g ) g (i-1) )
 
   fun starWith p d1 d2 g i = starWith1 p d1 d2 d1 g i
 
@@ -280,15 +282,15 @@ struct
   (* Note: the f and g used as arguments below *)
   (* must return a distribution expression, i.e., VAL v instead of v *)
 
-  fun homomorphic f g d pos =
+  fun homomorphic f g d =
     let
       fun h (VAL v) = f v
         | h (CHOICE (p,d1,d2)) = choice (p, h d1, h d2)
-        | h (UNION (d1,d2)) = unionWith (h d1) (h d2) g pos
-        | h (TWICE d) = twiceWith (h d) g pos
+        | h (UNION (d1,d2)) = unionWith (h d1) (h d2) g 
+        | h (TWICE d) = twiceWith (h d) g 
         | h BOTTOM = BOTTOM
 	| h (STAR (p,d1,d2)) =
-	      starWith p (h d1) (h d2) g (!maxiterations) pos
+	      starWith p (h d1) (h d2) g (!maxiterations) 
     in
       h d
     end
@@ -297,12 +299,11 @@ struct
   (* apply arithmetic operator to distribution expression
      of singleton collections *)
 
-  fun arith d1 d2 f pos =
+  fun arith d1 d2 f =
         unionWith d1 d2
                  (fn (Interpreter.VAL [m],Interpreter.VAL [n]) =>
 		       VAL (Interpreter.VAL [f (m,n)])
-                      | _ => raise DistribError ("Singleton expected",pos))
-                 pos
+                      | _ => raise DistribError ("Singleton expected"))
 
   (* apply linear function f to distribution expression *)
   (* using f(a U b) = f(a) U f(b) *)
@@ -332,7 +333,7 @@ struct
         let
           val p1 = pEmpty d1
         in
-          if p1 = 0.0 then 0.0
+          if mostlyEqual p1 0.0 then 0.0
           else p1*(pEmpty d2)
         end
     | pEmpty (TWICE d1) =
@@ -360,7 +361,7 @@ struct
         let
           val p1 = pNonempty d1
         in
-          if p1 = 1.0 then 1.0
+          if mostlyEqual p1 1.0 then 1.0
           else
             let
               val p2 = pNonempty d2
@@ -387,13 +388,13 @@ struct
   (* normalize distribution expression to right-associated and sorted
      CHOICE of VALs ending in either a VAL or BOTTOM *)
 
-  fun normalize d pos =
+  fun normalize d =
     homomorphic VAL
 		(fn (Interpreter.VAL v,Interpreter.VAL w) =>
 		       VAL (Interpreter.VAL (mergeI v w))
 		  | (_,_) => raise DistribError
-				   ("Cannot apply union to texts or pairs",pos))
-		d pos
+				   ("Cannot apply union to texts or pairs"))
+		d
 
   (* convert normalized distribution expression
      to list of (value,probability) pairs *)
@@ -402,7 +403,7 @@ struct
     | toList p (CHOICE (p1, VAL v, d)) =
         (v,p*p1) :: toList (p*(1.0-p1)) d
     | toList p BOTTOM = []
-    | toList _ _ = raise DistribError ("Internal error toList",(0,0))
+    | toList _ _ = raise DistribError ("Internal error toList")
 
   (* memo table for function calls *)
   val memo = ref []
@@ -434,8 +435,8 @@ struct
     | Syntax.SUM _ => true
     | Syntax.SIGN _ => true
     | Syntax.COUNT _ => true
-    | Syntax.LARGEST (Syntax.NUM (1,_),_,_) => true
-    | Syntax.LEAST (Syntax.NUM (1,_),_,_) => true
+    | Syntax.LARGEST (Syntax.NUM (1),_) => true
+    | Syntax.LEAST (Syntax.NUM (1),_) => true
     | Syntax.MEDIAN _ => true
     | _ => false
 
@@ -447,7 +448,7 @@ struct
       (* val _ = TextIO.output (TextIO.stdErr,Syntax.showExp e1 ^ "\n\n") *)
     in
       (maxcalls := !maxiterations;
-       toList 1.0 (normalize (dExp0 e1 [] decs) (0,0)))
+       toList 1.0 (normalize (dExp0 e1 [] decs) ))
     end
 
   (* return distribution expression for Troll expression *)
@@ -456,16 +457,16 @@ struct
   let
     fun dExp exp table =
     case exp of
-      Syntax.NUM (n,p) => VAL (Interpreter.VAL [n])
-    | Syntax.ID (x,p) =>
+      Syntax.NUM (n) => VAL (Interpreter.VAL [n])
+    | Syntax.ID (x) =>
         (case lookup x table of
            SOME v => VAL v
-         | NONE => raise DistribError ("unknown variable: "^x,p))
+         | NONE => raise DistribError ("unknown variable: "^x))
     | Syntax.EMPTY => VAL (Interpreter.VAL [])
-    | Syntax.CONC (e1,e2,p) =>
+    | Syntax.CONC (e1,e2) =>
         let
-          fun simpleList (Syntax.NUM (n,_)) = SOME [n]
-	    | simpleList (Syntax.CONC (e1,e2,_)) =
+          fun simpleList (Syntax.NUM (n)) = SOME [n]
+	    | simpleList (Syntax.CONC (e1,e2)) =
 	        (case (simpleList e1, simpleList e2) of
 		   (SOME l1, SOME l2) => SOME (l1@l2)
 		 | _ => NONE)
@@ -476,14 +477,14 @@ struct
 	       VAL (Interpreter.VAL (mergeI (mergeSort l1) (mergeSort l2)))
           | _ => union (dExp e1 table, dExp e2 table)
         end
-    | Syntax.CHOOSE (e1,p) =>
+    | Syntax.CHOOSE (e1) =>
         let
           fun countEq x n [] = (n,[])
             | countEq x n (xs as (x1::xs1)) =
                 if x=x1 then countEq x (n+1) xs1
                 else (n,xs)
     	  fun uniform [] _ =
-                raise DistribError ("Can't choose from empty collection",p)
+                raise DistribError ("Can't choose from empty collection")
             | uniform (x::xs) n =
                 let
                   val (m,xs2) = countEq x 1 xs
@@ -500,13 +501,13 @@ struct
                 choice (p, choose d1, choose d2)
             | choose BOTTOM = BOTTOM
             | choose _ = 
-                 raise DistribError ("choose cannot be applied to texts or pairs",p)
+                 raise DistribError ("choose cannot be applied to texts or pairs")
         in
-          choose (normalize (dExp e1 table) p)
+          choose (normalize (dExp e1 table))
         end
-    | Syntax.PICK (e1,e2,p) =>
+    | Syntax.PICK (e1,e2) =>
         let
-          val d1 = normalize (dExp e1 table) p
+          val d1 = normalize (dExp e1 table)
           fun pick m n xs =
 	        if m=0 then VAL (Interpreter.VAL [])
 	        else if n<=m then VAL (Interpreter.VAL xs)
@@ -523,29 +524,29 @@ struct
 	    | pick1 m (CHOICE (p,d11,d12)) =
 		 choice (p, pick1 m d11, pick1 m d12)
             | pick1 m _ =
-                 raise DistribError ("pick can not be applied to texts or pairs",p)
+                 raise DistribError ("pick can not be applied to texts or pairs")
           fun pick0 (VAL (Interpreter.VAL [m])) = pick1 m d1
             | pick0 (CHOICE (p,d21,d22)) =
                 CHOICE (p, pick0 d21, pick0 d22)
             | pick0 BOTTOM = BOTTOM
             | pick0 _ =
-                raise DistribError ("Non-singleton 2nd arg to pick",p)
+                raise DistribError ("Non-singleton 2nd arg to pick")
         in
-          pick0 (normalize (dExp e2 table) p)
+          pick0 (normalize (dExp e2 table))
         end
-    | Syntax.PLUS (e1,e2,p) =>
-        arith (dExp e1 table) (dExp e2 table) (op +) p
-    | Syntax.MINUS (e1,e2,p) =>
-        arith (dExp e1 table) (dExp e2 table) (op -) p
-    | Syntax.UMINUS (e1,p) =>
-        arith (VAL (Interpreter.VAL [0])) (dExp e1 table) (op -) p
-    | Syntax.TIMES (e1,e2,p) =>
-        arith (dExp e1 table) (dExp e2 table) (op * ) p
-    | Syntax.DIVIDE (e1,e2,p) =>
-        arith (dExp e1 table) (dExp e2 table) (op div) p
-    | Syntax.MOD (e1,e2,p) =>
-        arith (dExp e1 table) (dExp e2 table) (op mod) p
-    | Syntax.D (e1,p) =>
+    | Syntax.PLUS (e1,e2) =>
+        arith (dExp e1 table) (dExp e2 table) (op +)
+    | Syntax.MINUS (e1,e2) =>
+        arith (dExp e1 table) (dExp e2 table) (op -)
+    | Syntax.UMINUS (e1) =>
+        arith (VAL (Interpreter.VAL [0])) (dExp e1 table) (op -)
+    | Syntax.TIMES (e1,e2) =>
+        arith (dExp e1 table) (dExp e2 table) (op * )
+    | Syntax.DIVIDE (e1,e2) =>
+        arith (dExp e1 table) (dExp e2 table) (op div)
+    | Syntax.MOD (e1,e2) =>
+        arith (dExp e1 table) (dExp e2 table) (op mod)
+    | Syntax.D (e1) =>
         let
           fun d 1 m = VAL (Interpreter.VAL [m])
             | d n m =
@@ -553,16 +554,16 @@ struct
                   CHOICE (1.0/Real.fromInt n,
 			  VAL (Interpreter.VAL [m]),
 			  d (n-1) (m+1))
-                else raise DistribError ("arg to d or D must be >0",p)
+                else raise DistribError ("arg to d or D must be >0")
           fun ds (VAL (Interpreter.VAL [n])) = d n 1
             | ds (CHOICE (p,d1,d2)) =
                 choice (p, ds d1, ds d2)
             | ds BOTTOM = BOTTOM
-            | ds _ = raise DistribError ("Non-singleton used with D or d",p)
+            | ds _ = raise DistribError ("Non-singleton used with D or d")
         in
           ds (dExp e1 table)
         end
-    | Syntax.Z (e1,p) =>
+    | Syntax.Z (e1) =>
         let
           fun d 0 m = VAL (Interpreter.VAL [m])
             | d n m =
@@ -570,46 +571,44 @@ struct
                   CHOICE (1.0/Real.fromInt (n+1),
 			  VAL (Interpreter.VAL [m]),
 			  d (n-1) (m+1))
-                else raise DistribError ("arg to z or Z must be >=0",p)
+                else raise DistribError ("arg to z or Z must be >=0")
           fun ds (VAL (Interpreter.VAL [n])) = d n 0
             | ds (CHOICE (p,d1,d2)) =
                 choice (p, ds d1, ds d2)
             | ds BOTTOM = BOTTOM
-            | ds _ = raise DistribError ("Non-singleton used with z or Z",p)
+            | ds _ = raise DistribError ("Non-singleton used with z or Z")
         in
           ds (dExp e1 table)
         end
-    | Syntax.SIGN (e1,p) =>
+    | Syntax.SIGN (e1) =>
         let
           fun ss (VAL (Interpreter.VAL [n])) =
                 VAL (Interpreter.VAL [Int.sign n])
             | ss (CHOICE (p,d1,d2)) =
                 choice (p, ss d1, ss d2)
             | ss BOTTOM = BOTTOM
-            | ss _ = raise DistribError ("Non-singleton used with sgn",p)
+            | ss _ = raise DistribError ("Non-singleton used with sgn")
         in
           ss (dExp e1 table)
         end
-    | Syntax.SUM (e1,p) =>
+    | Syntax.SUM (e1) =>
         homomorphic
             (fn (Interpreter.VAL v) =>
 		VAL (Interpreter.VAL [List.foldr (op +) 0 v])
-	      | _ => raise DistribError ("Internal error SUM",p))
+	      | _ => raise DistribError ("Internal error SUM"))
 	    (fn (Interpreter.VAL [m],Interpreter.VAL [n]) =>
 		VAL (Interpreter.VAL [m+n])
-              | _ => raise DistribError ("Internal error SUM",p))
+              | _ => raise DistribError ("Internal error SUM"))
 	    (dExp e1 table)
-	    p
-    | Syntax.COUNT (e1,p) =>
+    | Syntax.COUNT (e1) =>
         homomorphic
             (fn (Interpreter.VAL v) => VAL (Interpreter.VAL [List.length v])
-	      | _ => raise DistribError ("Internal error COUNT",p))
+	      | _ => raise DistribError ("Internal error COUNT"))
             (fn (Interpreter.VAL [m],Interpreter.VAL [n]) =>
 		VAL (Interpreter.VAL [m+n])
-              | _ => raise DistribError ("Internal error COUNT",p))
+              | _ => raise DistribError ("Internal error COUNT"))
 	    (dExp e1 table)
-	    p
-    | Syntax.DIFFERENT (e1,p) =>
+    | Syntax.DIFFERENT (e1) =>
         let
         (* merge two strictly ascending lists of integers,
            discarding duplicates *)
@@ -625,38 +624,36 @@ struct
         in
           homomorphic
             (fn (Interpreter.VAL v) => VAL (Interpreter.VAL (noDups v))
-	      | _ => raise DistribError ("Can't apply different to texts or pairs",p))
+	      | _ => raise DistribError ("Can't apply different to texts or pairs"))
             (fn (Interpreter.VAL m, Interpreter.VAL n) =>
 		VAL (Interpreter.VAL (mergeS m n))
-	      | _ => raise DistribError ("Can't apply different to texts or pairs",p))
+	      | _ => raise DistribError ("Can't apply different to texts or pairs"))
 	    (dExp e1 table)
-	    p
         end
-    | Syntax.LEAST (e1,e2,p) =>
+    | Syntax.LEAST (e1,e2) =>
         let
           val d2 = dExp e2 table
           fun least n (v as Interpreter.VAL w) =
                 if List.length w <= n then VAL v
                 else VAL (Interpreter.VAL (List.take (w, n)))
-	    | least n _ = raise DistribError ("can't apply least to texts or pairs",p)
+	    | least n _ = raise DistribError ("can't apply least to texts or pairs")
           fun ls (VAL (Interpreter.VAL [n])) =
                 if n<0 then
-                  raise DistribError ("1st arg to least must be >= 0",p)
+                  raise DistribError ("1st arg to least must be >= 0")
                 else homomorphic
 		       (least n)
 		       (fn (Interpreter.VAL v,Interpreter.VAL w) =>
 			   least n (Interpreter.VAL (mergeI v w))
-			 | _ => raise DistribError ("can't apply least to texts or pairs",p))
+			 | _ => raise DistribError ("can't apply least to texts or pairs"))
 		       d2
-		       p
             | ls (CHOICE (p,d1,d2)) =
                 choice (p, ls d1, ls d2)
             | ls BOTTOM = BOTTOM
-            | ls _ = raise DistribError ("Non-singleton used with least",p)
+            | ls _ = raise DistribError ("Non-singleton used with least")
         in
           ls (dExp e1 table)
         end
-    | Syntax.LARGEST (e1,e2,p) =>
+    | Syntax.LARGEST (e1,e2) =>
         let
           val d2 = dExp e2 table
           fun largest n (v as Interpreter.VAL w) =
@@ -664,45 +661,44 @@ struct
                   if ll <= n then VAL v
                   else VAL (Interpreter.VAL (List.drop (w, ll - n)))
                 end
-	    | largest n _ = raise DistribError ("can't apply least to texts or pairs",p)
+	    | largest n _ = raise DistribError ("can't apply least to texts or pairs")
           fun ls (VAL (Interpreter.VAL [n])) =
                 if n<0 then
-                  raise DistribError ("1st arg to largest must be >= 0",p)
+                  raise DistribError ("1st arg to largest must be >= 0")
                 else homomorphic
 		       (largest n)
 		       (fn (Interpreter.VAL v,Interpreter.VAL w) =>
 			   largest n (Interpreter.VAL (mergeI v w))
-			 | _ => raise DistribError ("can't apply largest to texts or pairs",p))
+			 | _ => raise DistribError ("can't apply largest to texts or pairs"))
 		       d2
-		       p
             | ls (CHOICE (p,d1,d2)) =
                 choice (p, ls d1, ls d2)
             | ls BOTTOM = BOTTOM
-            | ls _ = raise DistribError ("Non-singleton used with largest",p)
+            | ls _ = raise DistribError ("Non-singleton used with largest")
         in
           ls (dExp e1 table)
         end
-    | Syntax.MEDIAN (e1,p) =>
+    | Syntax.MEDIAN (e1) =>
         let
 	  fun median xs = List.nth (xs, List.length xs div 2)
 	  fun medianD BOTTOM = BOTTOM
             | medianD (VAL (Interpreter.VAL []))
-	         = raise DistribError ("Can't take median of empty collection",p)
+	         = raise DistribError ("Can't take median of empty collection")
 	    | medianD (VAL  (Interpreter.VAL vs)) = VAL (Interpreter.VAL [median vs])
 	    | medianD (CHOICE (p,d1,d2)) = CHOICE (p, medianD d1, medianD d2)
-	    | medianD _ = raise DistribError ("Can't take median of text or pair",p)
+	    | medianD _ = raise DistribError ("Can't take median of text or pair")
         in
           case e1 of
-            Syntax.HASH (Syntax.NUM (n,p1), e2, p3)
+            Syntax.HASH (Syntax.NUM (n), e2)
 	       => if alwaysSingleton e2 then
-                    dExp (Syntax.LEAST (Syntax.NUM (1,p1),
-	                                Syntax.LARGEST (Syntax.NUM ((n+1) div 2,p1),
-				                        e1, p1), p1))
+                    dExp (Syntax.LEAST (Syntax.NUM (1),
+	                                Syntax.LARGEST (Syntax.NUM ((n+1) div 2),
+				                        e1)))
                          table
-                  else medianD (normalize (dExp e1 table) p)
-	  | _ => medianD (normalize (dExp e1 table) p)
+                  else medianD (normalize (dExp e1 table))
+	  | _ => medianD (normalize (dExp e1 table))
         end
-    | Syntax.MINIMAL (e1,p) =>
+    | Syntax.MINIMAL (e1) =>
         let
           fun minimal [] = []
 	    | minimal [x] = [x]
@@ -713,7 +709,7 @@ struct
           homomorphic
             (VAL o Interpreter.VAL
 	         o (fn (Interpreter.VAL v) => minimal v
-		     | _ => raise DistribError ("can't apply minimal to text or pair",p)))
+		     | _ => raise DistribError ("can't apply minimal to text or pair")))
             (fn (Interpreter.VAL [],ys) => VAL ys
 	      | (xs,Interpreter.VAL []) => VAL xs
 	      | (xs as Interpreter.VAL (xs1 as (x::_)),
@@ -721,11 +717,10 @@ struct
 		  if x<y then VAL xs
 		  else if x>y then VAL ys
 		  else VAL (Interpreter.VAL (xs1@ys1))
-	      | _ => raise DistribError ("can't apply minimal to text or pair",p))
+	      | _ => raise DistribError ("can't apply minimal to text or pair"))
 	    (dExp e1 table)
-	    p
 	end
-    | Syntax.MAXIMAL (e1,p) =>
+    | Syntax.MAXIMAL (e1) =>
         let
           fun maximal [] = []
 	    | maximal (x::xs) =
@@ -736,7 +731,7 @@ struct
           homomorphic
             (VAL o Interpreter.VAL
 	         o (fn (Interpreter.VAL v) => maximal v
-		     | _ => raise DistribError ("can't apply maximal to text or pair",p)))
+		     | _ => raise DistribError ("can't apply maximal to text or pair")))
             (fn (Interpreter.VAL [],ys) => VAL ys
 	      | (xs,Interpreter.VAL []) => VAL xs
 	      | (xs as Interpreter.VAL (xs1 as (x::_)),
@@ -744,11 +739,10 @@ struct
 		  if x<y then VAL ys
 		  else if x>y then VAL xs
 		  else VAL (Interpreter.VAL (xs1@ys1))
-	      | _ => raise DistribError ("can't apply maximal to text or pair",p))
+	      | _ => raise DistribError ("can't apply maximal to text or pair"))
 	    (dExp e1 table)
-	    p
 	end
-    | Syntax.HASH (e1,e2,p) =>
+    | Syntax.HASH (e1,e2) =>
         let
           val d2 = dExp e2 table
           fun h 0 d = VAL (Interpreter.VAL [])
@@ -758,114 +752,114 @@ struct
                       else union (h (n-1) d, d)
           fun hs (VAL (Interpreter.VAL [n])) =
 	        if n<0 then
-		  raise DistribError ("first arg to # must be >=0",p)
+		  raise DistribError ("first arg to # must be >=0")
                 else h n d2
             | hs (CHOICE (p,d1,d2)) =
                 choice (p, hs d1, hs d2)
             | hs BOTTOM = BOTTOM
-            | hs _ = raise DistribError ("Non-singleton used with #",p)
+            | hs _ = raise DistribError ("Non-singleton used with #")
         in
           hs (dExp e1 table)
         end
-    | Syntax.AND (e1,e2,p) =>
+    | Syntax.AND (e1,e2) =>
         let
           val p1 = pEmpty (dExp e1 table)
         in
-          if p1 = 0.0 then dExp e2 table
-          else if p1 = 1.0 then VAL (Interpreter.VAL [])
+          if mostlyEqual p1 0.0 then dExp e2 table
+          else if mostlyEqual p1 1.0 then VAL (Interpreter.VAL [])
           else choice (p1, VAL (Interpreter.VAL []), dExp e2 table)
         end
-    | Syntax.LT (e1,e2,p) =>
+    | Syntax.LT (e1,e2) =>
         let
           val d2 = dExp e2 table
           fun lt n = linear (fn (Interpreter.VAL w) =>
 				  Interpreter.VAL (List.filter (fn a => n<a) w)
-			      | _ => raise DistribError ("can't use < on text or pair",p))
+			      | _ => raise DistribError ("can't use < on text or pair"))
 			    d2
           fun filter (VAL (Interpreter.VAL [n])) = lt n
             | filter (CHOICE (p,d1,d2)) =
                 choice (p, filter d1, filter d2)
             | filter BOTTOM = BOTTOM
-            | filter _ = raise DistribError ("Non-singleton used with <",p)
+            | filter _ = raise DistribError ("Non-singleton used with <")
         in
           filter (dExp e1 table)
         end
-    | Syntax.LE (e1,e2,p) =>
+    | Syntax.LE (e1,e2) =>
         let
           val d2 = dExp e2 table
           fun le n = linear (fn (Interpreter.VAL w) =>
 				  Interpreter.VAL (List.filter (fn a => n<=a) w)
-			      | _ => raise DistribError ("can't use <= on text or pair",p))
+			      | _ => raise DistribError ("can't use <= on text or pair"))
 			    d2
           fun filter (VAL (Interpreter.VAL [n])) = le n
             | filter (CHOICE (p,d1,d2)) =
                 choice (p, filter d1, filter d2)
             | filter BOTTOM = BOTTOM
-            | filter _ = raise DistribError ("Non-singleton used with <=",p)
+            | filter _ = raise DistribError ("Non-singleton used with <=")
         in
           filter (dExp e1 table)
         end
-    | Syntax.GT (e1,e2,p) =>
+    | Syntax.GT (e1,e2) =>
         let
           val d2 = dExp e2 table
           fun gt n = linear (fn (Interpreter.VAL w) =>
 				  Interpreter.VAL (List.filter (fn a => n>a) w)
-			      | _ => raise DistribError ("can't use > on text or pair",p))
+			      | _ => raise DistribError ("can't use > on text or pair"))
 			    d2
           fun filter (VAL (Interpreter.VAL [n])) = gt n
             | filter (CHOICE (p,d1,d2)) =
                 choice (p, filter d1, filter d2)
             | filter BOTTOM = BOTTOM
-            | filter _ = raise DistribError ("Non-singleton used with >",p)
+            | filter _ = raise DistribError ("Non-singleton used with >")
         in
           filter (dExp e1 table)
         end
-    | Syntax.GE (e1,e2,p) =>
+    | Syntax.GE (e1,e2) =>
         let
           val d2 = dExp e2 table
           fun ge n = linear (fn (Interpreter.VAL w) =>
 				  Interpreter.VAL (List.filter (fn a => n>=a) w)
-			      | _ => raise DistribError ("can't use >= on text or pair",p))
+			      | _ => raise DistribError ("can't use >= on text or pair"))
 			    d2
           fun filter (VAL (Interpreter.VAL [n])) = ge n
             | filter (CHOICE (p,d1,d2)) =
                 choice (p, filter d1, filter d2)
             | filter BOTTOM = BOTTOM
-            | filter _ = raise DistribError ("Non-singleton used with >=",p)
+            | filter _ = raise DistribError ("Non-singleton used with >=")
         in
           filter (dExp e1 table)
         end
-    | Syntax.EQ (e1,e2,p) =>
+    | Syntax.EQ (e1,e2) =>
         let
           val d2 = dExp e2 table
           fun eq n = linear (fn (Interpreter.VAL w) =>
 				  Interpreter.VAL (List.filter (fn a => n=a) w)
-			      | _ => raise DistribError ("can't use = on text or pair",p))
+			      | _ => raise DistribError ("can't use = on text or pair"))
 			    d2
           fun filter (VAL (Interpreter.VAL [n])) = eq n
             | filter (CHOICE (p,d1,d2)) =
                 choice (p, filter d1, filter d2)
             | filter BOTTOM = BOTTOM
-            | filter _ = raise DistribError ("Non-singleton used with =",p)
+            | filter _ = raise DistribError ("Non-singleton used with =")
         in
           filter (dExp e1 table)
         end
-    | Syntax.NEQ (e1,e2,p) =>
+    | Syntax.NEQ (e1,e2) =>
         let
           val d2 = dExp e2 table
           fun neq n = linear (fn (Interpreter.VAL w) =>
 				  Interpreter.VAL (List.filter (fn a => n<>a) w)
-			      | _ => raise DistribError ("can't use =/= on text or pair",p))
+			      | _ => raise DistribError ("can't use =/= on text or pair"))
 			    d2
           fun filter (VAL (Interpreter.VAL [n])) = neq n
             | filter (CHOICE (p,d1,d2)) =
                 choice (p, filter d1, filter d2)
             | filter BOTTOM = BOTTOM
-            | filter _ = raise DistribError ("Non-singleton used with =/=",p)
+            | filter _ = raise DistribError ("Non-singleton used with =/=")
         in
           filter (dExp e1 table)
         end
-    | Syntax.DROP (e1,e2,p) =>
+    | Syntax.DROP (e1,e2) =>
         let
           val d1 = dExp e1 table
           val d2 = dExp e2 table
@@ -876,7 +870,7 @@ struct
           fun drop (VAL (Interpreter.VAL v)) (VAL (Interpreter.VAL w)) =
 	        VAL (Interpreter.VAL (subtract v w))
 	    | drop (VAL v) (VAL w) =
-	        raise DistribError ("can't apply drop to text or pair",p)
+	        raise DistribError ("can't apply drop to text or pair")
             | drop (CHOICE (p,d1,d2)) d3 =
                 choice (p, drop d1 d3, drop d2 d3)
             | drop (UNION (d1,d2)) d3 =
@@ -902,7 +896,7 @@ struct
         in
           drop d1 d2
         end
-    | Syntax.KEEP (e1,e2,p) =>
+    | Syntax.KEEP (e1,e2) =>
         let
           val d1 = dExp e1 table
           val d2 = dExp e2 table
@@ -913,18 +907,18 @@ struct
 	  fun intersect1 (Interpreter.VAL v) w =
 	        Interpreter.VAL (intersect v w)
 	    | intersect1 _ _ = raise DistribError
-					 ("can't apply keep to text or pair",p)
+					 ("can't apply keep to text or pair")
 	  fun keep d1 (VAL (Interpreter.VAL w)) =
 	        linear (fn v => intersect1 v w) d1
 	    | keep d1 (CHOICE  (p,d2,d3)) =
                 choice (p, keep d1 d2, keep d1 d3)
             | keep _ BOTTOM = BOTTOM
 	    | keep _ _ = raise DistribError
-				   ("can't apply keep to text or pair",p)
+				   ("can't apply keep to text or pair")
         in
-          keep d1 (normalize d2 p)
+          keep d1 (normalize d2)
         end
-    | Syntax.SETMINUS (e1,e2,p) =>
+    | Syntax.SETMINUS (e1,e2) =>
         let
           val d1 = dExp e1 table
           val d2 = dExp e2 table
@@ -941,10 +935,10 @@ struct
 	        choice (p, setminus1 d11 w, setminus1 d12 w)
 	    | setminus1 BOTTOM w = BOTTOM
 	    | setminus1 _ w = raise DistribError
-				   ("can't apply -- to text or pair",p)
+				   ("can't apply -- to text or pair")
 	  fun setminus d1 (VAL (Interpreter.VAL w)) = setminus1 d1 w
 	    | setminus d1 (VAL _) = raise DistribError
-					  ("can't apply -- to text or pair",p)
+					  ("can't apply -- to text or pair")
 	    | setminus d1 (CHOICE (p,d21,d22)) =
 	        choice (p, setminus d1 d21, setminus d1 d22)
 	    | setminus d1 (UNION (d21,d22)) =
@@ -952,31 +946,30 @@ struct
 	    | setminus d1 (TWICE d2) =
 	        setminus (setminus d1 d2) d2
 	    | setminus d1 BOTTOM = BOTTOM
-	    | setminus d1 d2 = setminus d1 (normalize d2 p)
+	    | setminus d1 d2 = setminus d1 (normalize d2)
         in
-          setminus (normalize d1 p) d2
+          setminus (normalize d1) d2
         end
-    | Syntax.FROMTO (e1,e2,p) =>
+    | Syntax.FROMTO (e1,e2) =>
         unionWith
           (dExp e1 table) (dExp e2 table)
           (fn (Interpreter.VAL [m],Interpreter.VAL [n]) =>
               if m<n then
 	            VAL (Interpreter.VAL (List.tabulate (n-m+1,fn x=>x+m)))
               else VAL (Interpreter.VAL [])
-            | _ => raise DistribError ("Non-singleton used with ..",p))
-          p
-    | Syntax.LET (x,e1,e2,p) =>
+            | _ => raise DistribError ("Non-singleton used with .."))
+    | Syntax.LET (x,e1,e2) =>
         let
           fun bind (VAL v) =
                 dExp e2 ((x,v)::table)
             | bind (CHOICE (p,d1,d2)) =
                 choice (p, bind d1, bind d2)
             | bind BOTTOM = BOTTOM
-            | bind _ = raise DistribError ("Internal error LET ",p)
+            | bind _ = raise DistribError ("Internal error LET ")
         in
-          bind (normalize (dExp e1 table) p)
+          bind (normalize (dExp e1 table))
         end
-    | Syntax.REPEAT (x,e1,e2,continue,p) =>
+    | Syntax.REPEAT (x,e1,e2,continue) =>
         let
           (* returns probability of repeating 
              and distribution expression when not repeating *)
@@ -986,7 +979,7 @@ struct
                           then pNonempty (dExp e2 ((x,v)::table))
                           else pEmpty (dExp e2 ((x,v)::table))
                 in
-                  if p = 1.0 then (1.0, BOTTOM)
+                  if mostlyEqual p 1.0 then (1.0, BOTTOM)
                   else (p, VAL v)
 		end
             | repeat (CHOICE (p,d1,d2)) x e2 =
@@ -995,15 +988,15 @@ struct
                   val (r,d2s) = repeat d2 x e2
                   val p1 = p*q+(1.0-p)*r (* prob of repeating *)
                 in
-                  if p1 = 1.0 then (1.0, BOTTOM)
+                  if mostlyEqual p1 1.0 then (1.0, BOTTOM)
                   else (p1, choice(p*(1.0-q)/(1.0-p1),d1s,d2s))
                 end
 	    | repeat BOTTOM x e2 = (0.0, BOTTOM)
-            | repeat _ x e2 = raise DistribError ("Internal error REPEAT ",p)
+            | repeat _ x e2 = raise DistribError ("Internal error REPEAT ")
         in
-          #2 (repeat (normalize (dExp e1 table) p) x e2)
+          #2 (repeat (normalize (dExp e1 table)) x e2)
         end
-    | Syntax.ACCUM (x,e1,e2,continue,p) =>
+    | Syntax.ACCUM (x,e1,e2,continue) =>
         let
           (* returns probability of repeating
              and distribution expression for repeat/stop *)
@@ -1021,115 +1014,109 @@ struct
                   val (r,d2r,d2s) = repeatStop d2 x e2
                   val p1 = p*q+(1.0-p)*r (* prob of repeating *)
                 in
-                  (p1, if p1 = 0.0 then BOTTOM
+                  (p1, if mostlyEqual p1 0.0 then BOTTOM
 		       else choice(p*q/p1,d1r,d2r),
-                       if p1 = 1.0 then BOTTOM
+                       if mostlyEqual p1 1.0 then BOTTOM
 		       else choice( p*(1.0-q)/(1.0-p1),d1s,d2s))
                 end
 	    | repeatStop BOTTOM x e2 = (0.0, BOTTOM, BOTTOM)
-            | repeatStop _ x e2 = raise DistribError ("Internal error ACCUM ",p)
-          val (pr,dr,ds) = repeatStop (normalize (dExp e1 table) p) x e2
+            | repeatStop _ x e2 = raise DistribError ("Internal error ACCUM ")
+          val (pr,dr,ds) = repeatStop (normalize (dExp e1 table)) x e2
         in
 	  star (1.0-pr, ds, dr)
         end
-    | Syntax.FOREACH (x,e1,e2,p) =>
+    | Syntax.FOREACH (x,e1,e2) =>
         let
           fun foreach (Interpreter.VAL v) =
                 foldr (fn (n,y) =>
 			  union (dExp e2 ((x,Interpreter.VAL [n])::table),y))
                       (VAL (Interpreter.VAL []))
 		v
-	    | foreach _ = raise DistribError ("can't apply foreach to text or pair",p)
+	    | foreach _ = raise DistribError ("can't apply foreach to text or pair")
         in
           linear2 foreach (dExp e1 table)
         end
-    | Syntax.IF (e1,e2,e3,p) =>
+    | Syntax.IF (e1,e2,e3) =>
         let
 	  val d1 = dExp e1 table
           val pe = pEmpty d1
           val pn = pNonempty d1
         in
-          if pe = 1.0 then dExp e3 table
-          else if pn = 1.0 then dExp e2 table
-          else if pe+pn = 1.0 then choice (pn, dExp e2 table, dExp e3 table)
+          if mostlyEqual pe 1.0 then dExp e3 table
+          else if mostlyEqual pn 1.0 then dExp e2 table
+          else if mostlyEqual (pe+pn) 1.0 then choice (pn, dExp e2 table, dExp e3 table)
           else  choice (pn, dExp e2 table,
 			    choice (pe/(1.0-pn),dExp e3 table, BOTTOM))
         end
-    | Syntax.CALL (f,args,p) =>
-        callFun f (List.map (fn e => dExp e table) args) decs p
-    | Syntax.QUESTION (prob,p) =>
+    | Syntax.CALL (f,args) =>
+        callFun f (List.map (fn e => dExp e table) args) decs
+    | Syntax.QUESTION (prob) =>
         choice (prob, VAL (Interpreter.VAL [1]), VAL (Interpreter.VAL []))
-    | Syntax.STRING (s,p) => VAL (Interpreter.TEXT [s])
-    | Syntax.SAMPLE(e1,p) =>
+    | Syntax.STRING (s) => VAL (Interpreter.TEXT [s])
+    | Syntax.SAMPLE(e1) =>
         let
           val d = dExp e1 table
 	in
-	  linear Interpreter.makeText (normalize d p)
+	  linear Interpreter.makeText (normalize d)
 	end
-    | Syntax.SAMPLES(e1,e2,p) =>
+    | Syntax.SAMPLES(e1,e2) =>
         let
-          val d1 = normalize (dExp e1 table) p
+          val d1 = normalize (dExp e1 table)
           val d2 = dExp e2 table
-	  val d2' = linear Interpreter.makeText (normalize d2 p)
+	  val d2' = linear Interpreter.makeText (normalize d2)
 	  fun samples 0 = VAL (Interpreter.TEXT [])
 	    | samples 1 = d2'
 	    | samples n = unionWith d2'
 				    (samples (n-1))
 				    (VAL o Interpreter.vconcr)
-				    p
 	  fun samples0 (VAL (Interpreter.VAL [m])) =
-	        if m<0 then raise DistribError ("Negative arg1 to '",p)
+	        if m<0 then raise DistribError ("Negative arg1 to '")
 		else samples m
             | samples0 (CHOICE (p,d21,d22)) =
                 CHOICE (p, samples0 d21, samples0 d22)
             | samples0 BOTTOM = BOTTOM
             | samples0 _ =
-                raise DistribError ("Non-singleton 1st arg to '",p)
+                raise DistribError ("Non-singleton 1st arg to '")
 	in
 	  samples0 d1
 	end
-    | Syntax.HCONC (e1,e2,p) =>
-        unionWith (normalize (dExp e1 table) p)
-	          (normalize (dExp e2 table) p)
+    | Syntax.HCONC (e1,e2) =>
+        unionWith (normalize (dExp e1 table))
+	          (normalize (dExp e2 table))
 		  (VAL o Interpreter.hconc)
-	          p
-    | Syntax.VCONCL (e1,e2,p) =>
-        unionWith (normalize (dExp e1 table) p)
-	          (normalize (dExp e2 table) p)
+    | Syntax.VCONCL (e1,e2) =>
+        unionWith (normalize (dExp e1 table))
+	          (normalize (dExp e2 table))
 		  (VAL o Interpreter.vconcl)
-	          p
-    | Syntax.VCONCR (e1,e2,p) =>
-        unionWith (normalize (dExp e1 table) p)
-	          (normalize (dExp e2 table) p)
+    | Syntax.VCONCR (e1,e2) =>
+        unionWith (normalize (dExp e1 table))
+	          (normalize (dExp e2 table))
 		  (VAL o Interpreter.vconcr)
-	          p
-    | Syntax.VCONCC (e1,e2,p) =>
-        unionWith (normalize (dExp e1 table) p)
-	          (normalize (dExp e2 table) p)
+    | Syntax.VCONCC (e1,e2) =>
+        unionWith (normalize (dExp e1 table))
+	          (normalize (dExp e2 table))
 		  (VAL o Interpreter.vconcc)
-	          p
-    | Syntax.PAIR (e1,e2,p) =>
-        unionWith (normalize (dExp e1 table) p)
-	          (normalize (dExp e2 table) p)
+    | Syntax.PAIR (e1,e2) =>
+        unionWith (normalize (dExp e1 table))
+	          (normalize (dExp e2 table))
 		  (VAL o Interpreter.PAIR)
-	          p
-    | Syntax.FIRST (e1,p) =>
+    | Syntax.FIRST (e1) =>
         let
           fun first (Interpreter.PAIR (v,w)) = v
             | first _ =
-                raise DistribError ("Can not apply %1 to a non-pair",p)
+                raise DistribError ("Can not apply %1 to a non-pair")
         in
           linear first (dExp e1 table)
         end
-    | Syntax.SECOND (e1,p) =>
+    | Syntax.SECOND (e1) =>
         let
           fun second (Interpreter.PAIR (v,w)) = w
             | second _ =
-                raise DistribError ("Can not apply %2 to a non-pair",p)
+                raise DistribError ("Can not apply %2 to a non-pair")
         in
           linear second (dExp e1 table)
         end
-    | Syntax.DEFAULT (x,e1,p) =>
+    | Syntax.DEFAULT (x,e1) =>
         (case lookup x table of
            SOME v => VAL v
          | NONE => dExp e1 table)
@@ -1137,10 +1124,10 @@ struct
     dExp exp table
   end
 
-  and callFun f vs decs p =
+  and callFun f vs decs =
     case lookup f decs of
-      NONE => raise DistribError ("Unknown function: "^f,p)
-    | SOME (Syntax.Func (pars, body, pos)) =>
+      NONE => raise DistribError ("Unknown function: "^f)
+    | SOME (Syntax.Func (pars, body)) =>
         let
           fun call [] [] env body =
               let
@@ -1164,12 +1151,12 @@ struct
                     choice (p, call1 d1, call1 d2)
                   | call1 BOTTOM = BOTTOM
                   | call1 _ =
-                    raise DistribError ("Internal error CALL ",p)
+                    raise DistribError ("Internal error CALL ")
               in
-                call1 (normalize v pos)
+                call1 (normalize v )
               end
             | call _ _ _ _ =
-              raise DistribError ("Wrong number of args to "^f,p)
+              raise DistribError ("Wrong number of args to "^f)
         in
           if !maxcalls = 0
           then BOTTOM
@@ -1179,19 +1166,16 @@ struct
              before
              maxcalls := !maxcalls + 1)
         end
-     | SOME (Syntax.Comp (empty, single, union, pos)) =>
+     | SOME (Syntax.Comp (empty, single, union )) =>
          let
            fun f0 [] = dExp0 empty [] decs
-             | f0 (n::ns) = callFun union
-                                   [callFun single [VAL (Interpreter.VAL [n])] decs pos, f0 ns]
-				   decs pos
-           fun g (x,y) = callFun union [VAL x, VAL y] decs pos
+             | f0 (n::ns) = callFun union [callFun single [VAL (Interpreter.VAL [n])] decs, f0 ns] decs
+           fun g (x,y) = callFun union [VAL x, VAL y] decs
          in
            case vs of
 	     [v] => homomorphic (fn (Interpreter.VAL xs) => f0 xs
-				  | _ => raise DistribError ("Can't apply compositional fuction to text or pair",p))
-				g v pos
-           | _   => raise DistribError ("Wrong number of args to "^f,p)
+				  | _ => raise DistribError ("Can't apply compositional fuction to text or pair"))
+				g v
+           | _   => raise DistribError ("Wrong number of args to "^f)
          end
-
 end
