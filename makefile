@@ -10,4 +10,4 @@ Troll : Troll.mlb Syntax.sml Parser.grm.sml Lexer.lex.sml Interpreter.sml Parser
 	mlton Troll.mlb
 
 clean :
-	rm -rf Parser.grm.sml Parser.grm.sig Parser.grm.desc Lexer.lex.sml
+	rm -rf Parser.grm.sml Parser.grm.sig Parser.grm.desc Lexer.lex.sml Troll
