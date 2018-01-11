@@ -26,7 +26,7 @@ val predef = List.map makeUnaryFunction
 
 %name troll_parser
 
-%pos int * int
+%pos int
 
 %start Dice
 
@@ -35,26 +35,30 @@ val predef = List.map makeUnaryFunction
 %noshift EOF
 %eop EOF
 
-%term NUM of int |
- ID of string |
- STRINGS of string list |
- D | Z | SUM | LEAST | LARGEST | MIN | MAX | CONC | HASH | COUNT | AND |
- PLUS | MINUS | TIMES | DIVIDE | MOD | LPAR | RPAR | LBRACE | RBRACE | COMMA |
- ASSGN | EQ | NEQ | LT | GT | LE | GE | DOTDOT | SEMI | LET | IN |
- FOREACH | DO | IF | THEN | ELSE | CHOOSE | DROP | KEEP | PICK | DIFFERENT | MEDIAN |
- ACCUM | REPEAT | WHILE | UNTIL | FUNCTION | CALL | COMPOSITIONAL | EOF |
- SAMPLE | HCONC | VCONCL | VCONCR | VCONCC | UMINUS |
- QUESTION | MINIMAL | MAXIMAL | SETMINUS |
- LBRACK | RBRACK | FIRST | SECOND | SIGN | TILDE | BANG |
- REAL of real
+%term NUM of int | ID of string
+    | STRINGS of string list | D | Z | SUM | LEAST
+    | LARGEST | MIN | MAX | CONC | HASH | COUNT | AND
+    | PLUS | MINUS | TIMES | DIVIDE | MOD | LPAR | RPAR
+    | LBRACE | RBRACE | COMMA | ASSGN | EQ | NEQ | LT
+    | GT | LE | GE | DOTDOT | SEMI | LET | IN | FOREACH
+    | DO | IF | THEN | ELSE | CHOOSE | DROP | KEEP
+    | PICK | DIFFERENT | MEDIAN | ACCUM | REPEAT | WHILE | UNTIL 
+    | FUNCTION | CALL | COMPOSITIONAL | EOF | SAMPLE | HCONC
+    | VCONCL | VCONCR | VCONCC | UMINUS | QUESTION | MINIMAL
+    | MAXIMAL | SETMINUS | LBRACK | RBRACK | FIRST | SECOND
+    | SIGN | TILDE | BANG | REAL of real
 
-%nonterm Dice of Syntax.Program |
- Decl of (string * Syntax.Declaration) |
- Decls of ((string * Syntax.Declaration) list) |
- Exp of Syntax.Exp | ExpNoUn of Syntax.Exp| ExpList of Syntax.Exp | ExpList1 of Syntax.Exp |
- ExpList2 of Syntax.Exp list |
- Ids of string list | 
- IDorUnop of string | IDorBinop of string
+%nonterm Dice of Syntax.Program
+       | Decl of (string * Syntax.Declaration)
+       | Decls of ((string * Syntax.Declaration) list)
+       | Exp of Syntax.Exp
+       | ExpNoUn of Syntax.Exp
+       | ExpList of Syntax.Exp
+       | ExpList1 of Syntax.Exp
+       | ExpList2 of Syntax.Exp list
+       | Ids of string list
+       | IDorUnop of string
+       | IDorBinop of string
 
 %nonassoc FUNCTION
 %right SEMI
