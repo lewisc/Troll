@@ -2,6 +2,7 @@
 *.uo
 troll
 *.exe
+*.swp
 Parser.grm.desc
 Parser.grm.sml
 Parser.grm.sig
