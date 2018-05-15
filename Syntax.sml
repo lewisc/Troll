@@ -41,17 +41,17 @@ struct
                | LET of string * Exp * Exp
                | REPEAT of string * Exp * Exp * bool
                | ACCUM of string * Exp * Exp * bool
-	       | FOREACH of string * Exp * Exp
-	       | IF of Exp * Exp * Exp
-	       | CALL of string * Exp list
-	       | STRING of string
+               | FOREACH of string * Exp * Exp
+               | IF of Exp * Exp * Exp
+               | CALL of string * Exp list
+               | STRING of string
                | SAMPLE of Exp
                | SAMPLES of Exp * Exp
                | HCONC of Exp * Exp
                | VCONCL of Exp * Exp
                | VCONCR of Exp * Exp
                | VCONCC of Exp * Exp
-	       | QUESTION of real
+               | QUESTION of real
                | PAIR of Exp * Exp
                | FIRST of Exp
                | SECOND of Exp

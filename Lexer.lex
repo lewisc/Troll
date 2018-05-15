@@ -54,15 +54,16 @@ fun keyword (s, pos) =
 %header (functor TrollLexFun(structure Tokens: troll_parser_TOKENS));
 alpha=[A-Za-z];
 digit=[0-9];
+%s S;
 ws = [\ \t];
 
 %%
 <INITIAL>{ws}+                 => ( lex() );
 <INITIAL>[0-9]+                => ( Tokens.NUM (valOf (Int.fromString yytext), !currentLine, !currentLine) );
 <INITIAL>"0."[0-9]+            => ( Tokens.REAL (valOf (Real.fromString yytext),!currentLine, !currentLine) );
-<INITIAL>"\\" [^ \n]*          => ( !currentLine; lex() );
-<INITIAL>"\""                  => ( lex() );
-<INITIAL>[a-zA-Z]+             => ( lex() );
+<INITIAL>"\\" [^ \n]*          => ( lex() );
+<INITIAL>"\""                  => ( YYBEGIN S; lex() );
+<INITIAL>[a-zA-Z]+             => ( keyword (yytext, !currentLine) );
 <INITIAL>"+"                   => ( Tokens.PLUS (!currentLine, !currentLine) );
 <INITIAL>"-"                   => ( Tokens.MINUS (!currentLine, !currentLine) );
 <INITIAL>"--"                  => ( Tokens.SETMINUS (!currentLine, !currentLine) );
@@ -97,4 +98,5 @@ ws = [\ \t];
 <INITIAL>"%2"                  => ( Tokens.SECOND (!currentLine, !currentLine) );
 <INITIAL>"~"                   => ( Tokens.TILDE (!currentLine, !currentLine) );
 <INITIAL>"!"                   => ( Tokens.BANG (!currentLine, !currentLine) );
-<INITIAL>.                     => ( lex() );
+<S>[^\"]*                      => ( Tokens.STRINGS ( [yytext], !currentLine, !currentLine) );
+<S>"\""                        => ( YYBEGIN INITIAL; lex() );
