@@ -1,4 +1,10 @@
 
+UPDATE NOTICE - THESE INSTRUCTIONS ARE NOT CURRENTLY CORRECT FOR THE MAINLINE OF THIS REPOSITORY
+
+CURRENTLY THIS REPO IS NOT FULLY OPERATIONAL
+
+
+
 To install Troll on your computer, you first need to install Moscow
 ML.  There are instructions for this on the Moscow ML homepage
 (http://www.itu.dk/people/sestoft/mosml.html).  When this
